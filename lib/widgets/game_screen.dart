@@ -199,7 +199,9 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget playersPanel() {
-    final turn = game?['phase'] == 'bidding' ? game?['turn'] as int? : null;
+    final turn = game != null && game!['phase'] == 'bidding'
+        ? game!['turn'] as int
+        : null;
     return ListView(
       padding: const EdgeInsets.fromLTRB(22, 20, 22, 24),
       children: [
