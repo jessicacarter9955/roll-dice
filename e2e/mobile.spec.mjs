@@ -26,17 +26,13 @@ test('three mobile breakpoints render the actual 3D ZIP table and controls', asy
 test('Flutter portrait lobby enters practice with the original renderer behind controls', async ({page}) => {
   test.skip(process.env.E2E_SOURCE_TABLE === '1', 'Source-table mode has no Flutter build.');
   await page.goto('/roll-dice/');
-  const enable = page.getByRole('button', {name: 'Enable accessibility'});
-  if (await enable.isVisible()) await enable.click();
-  // Flutter's CanvasKit semantics tree is not consistently exposed in CI's
-  // headless Chrome. Use the visible practice CTA when accessible, otherwise
-  // tap its verified position in the fixed 393x852 portrait viewport.
-  const practice = page.getByRole('button', {name: 'Play a practice round'});
-  if (await practice.isVisible()) {
-    await practice.click();
-  } else {
-    await page.waitForTimeout(1200); // Allow CanvasKit's first rasterized frame.
-    // CI failure screenshot (393x852) places the CTA at x=41..352, y=385..425.
+  await page.locator('flutter-view').waitFor({state: 'visible', timeout: 15000});
+  // CanvasKit's accessibility activation sometimes hangs Chromium headless
+  // even though the Flutter game is rendered. Exercise the actual touch target
+  // instead of depending on a semantics overlay or its clickability.
+  // Verified 393x852 screenshot: practice CTA at x=41..352, y=385..425.
+  for (let attempt = 0; attempt < 3 && await page.locator('iframe').count() === 0; attempt++) {
+    await page.waitForTimeout(1200); // Let Flutter finish rasterizing the CTA.
     await page.mouse.click(196, 405);
   }
   // The embedded real 3D table is the evidence of a successful transition;
