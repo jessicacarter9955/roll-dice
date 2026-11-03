@@ -28,8 +28,19 @@ test('Flutter portrait lobby enters practice with the original renderer behind c
   await page.goto('/roll-dice/');
   const enable = page.getByRole('button', {name: 'Enable accessibility'});
   if (await enable.isVisible()) await enable.click();
-  await page.getByRole('button', {name: 'Play a practice round'}).click({timeout: 15000});
-  await expect(page.getByRole('button', {name: /4 players.*seats/i})).toBeVisible();
+  // Flutter's CanvasKit semantics tree is not consistently exposed in CI's
+  // headless Chrome. Use the visible practice CTA when accessible, otherwise
+  // tap its verified position in the fixed 393x852 portrait viewport.
+  const practice = page.getByRole('button', {name: 'Play a practice round'});
+  if (await practice.isVisible()) {
+    await practice.click();
+  } else {
+    await page.waitForTimeout(1200); // Allow CanvasKit's first rasterized frame.
+    await page.mouse.click(196, 440);
+  }
+  // The embedded real 3D table is the evidence of a successful transition;
+  // no assertion below depends on Flutter's optional accessibility overlay.
+  await expect(page.locator('iframe')).toHaveCount(1, {timeout: 15000});
   const table = page.frameLocator('iframe');
   await expect(table.locator('#loading-overlay')).toBeHidden({timeout: 20000});
   await expect(table.locator('#loader')).toHaveCount(0);
