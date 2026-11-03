@@ -16,3 +16,4 @@ ios/.symlinks/
 ios/Flutter/Generated.xcconfig
 ios/Flutter/flutter_export_environment.sh
 qa/screenshots/
+e2e/visual-artifacts/

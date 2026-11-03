@@ -29,6 +29,30 @@ body {
     pointer-events: auto;
 }
 
+#graphics-error:not([hidden]) {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(#0008, #000b), url('src/images/back1.png') center / cover;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.graphics-error-card {
+    max-width: 350px;
+    padding: 20px;
+    background: #111b;
+    color: #fff3d1;
+    border: 2px solid #d4af37;
+    text-align: center;
+    border-radius: 14px;
+    font-size: 15px;
+}
+
+.graphics-error-card strong { font-size: 18px; }
+
 #game-screen,
 .dock-panel {
     user-select: none;

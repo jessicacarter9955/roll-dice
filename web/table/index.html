@@ -16,6 +16,12 @@
 
 <body>
     <div id="loading-overlay">Loading table…</div>
+    <div id="graphics-error" role="alert" hidden>
+      <div class="graphics-error-card">
+        <strong>3D rendering is unavailable</strong>
+        <p>This browser cannot start WebGL. Try Chrome or Safari with graphics acceleration enabled, or another device. The original table assets are safe.</p>
+      </div>
+    </div>
     <div id="game-screen">
         <canvas id="c" aria-label="Original 3D dice table in portrait"></canvas>
         <div class="settingsMenu">
@@ -67,6 +73,7 @@
         <audio id="sRoll" src="src/sfx/rollingDices.mp3" preload="auto"></audio>
     </div>
     <!-- consolidated volume control lives inside the dock panel actions -->
+    <script src="graphics-fallback.js"></script>
     <script type="module" src="script.js"></script>
 </body>
 

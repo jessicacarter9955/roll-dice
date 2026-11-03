@@ -27,7 +27,7 @@ test('all ZIP-derived art, dice controls and sound bytes are unchanged', () => {
   }
 });
 test('table modules have valid browser-module syntax', () => {
-  for (const file of ['script.js','bridge.js']) {
+  for (const file of ['script.js','bridge.js','graphics-fallback.js']) {
     const source = readFileSync(new URL(`../../web/table/${file}`, import.meta.url),'utf8');
     // Explicit module mode catches the malformed optional chains present in the supplied archive.
     const result = spawnSync(process.execPath, ['--input-type=module', '--check'], { input: source, encoding:'utf8' });

@@ -32,6 +32,8 @@ Run the Node service and use separate browser profiles A/B/C. A and B are player
 
 ## Outstanding provider and device checks
 
+The no-WebGL cloud browser was inspected on 2026-11-03: it loads the app and enters practice, but cannot render the Three.js scene (`THREE.WebGLRenderer: Error creating WebGL context`). This is an **environment limitation**, not an accepted screenshot of the phone game. New builds render an explicit GPU error instead of hanging. GitHub's optional Playwright visual job uses Chromium/SwiftShader and uploads screenshots/videos for review; successful headless runs still cannot replace physical-device acceptance.
+
 - Twilio: actual delivery, consent, valid/invalid/expired codes, resend throttles and provider failures. No default OTP exists.
 - LiveKit: 8 publishers plus watchers, permissions, mute/unmute, packet loss, handoff/reconnect, expiry, leave/block revocation and no watcher publication.
 - GoDice experimental: on real Android and iPhone, menu → Smart dice status → Scan → Pair up to five devices. Wake by shaking, roll, verify only stable D6 values 1–6 and battery, disconnect/reconnect and denied permissions. In a fresh offline practice round, roll one die per remaining local die and select **Use these rolls in offline practice** before the first bid. Confirm the hand is replaced. Online coin results stay server-authoritative. Obtain Particula commercial approval.

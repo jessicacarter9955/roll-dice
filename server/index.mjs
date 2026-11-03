@@ -4,7 +4,7 @@ import { rateLimit } from 'express-rate-limit';
 import { WebSocketServer, WebSocket } from 'ws';
 import { AccessToken, RoomServiceClient } from 'livekit-server-sdk';
 import { DatabaseSync } from 'node:sqlite';
-import { randomBytes, randomUUID, randomInt, createHash } from 'node:crypto';
+import { randomBytes, randomUUID, randomInt, createHash, timingSafeEqual } from 'node:crypto';
 import { mkdirSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,6 +32,11 @@ CREATE TABLE IF NOT EXISTS sessions (hash TEXT PRIMARY KEY, user_id TEXT NOT NUL
 CREATE TABLE IF NOT EXISTS rooms (id TEXT PRIMARY KEY, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS crews (id TEXT PRIMARY KEY, code TEXT UNIQUE, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS reports (id TEXT PRIMARY KEY, reporter_id TEXT NOT NULL, target_id TEXT NOT NULL, room_id TEXT, reason TEXT NOT NULL, details TEXT NOT NULL, created_at INTEGER NOT NULL);`);
+// Existing databases created before moderation shipped need a non-destructive migration.
+const reportColumns = new Set(db.prepare('PRAGMA table_info(reports)').all().map(c => c.name));
+if (!reportColumns.has('status')) db.exec("ALTER TABLE reports ADD COLUMN status TEXT NOT NULL DEFAULT 'open'");
+if (!reportColumns.has('reviewed_at')) db.exec('ALTER TABLE reports ADD COLUMN reviewed_at INTEGER');
+db.exec('CREATE INDEX IF NOT EXISTS reports_by_created ON reports(created_at DESC)');
 const hash = s => createHash('sha256').update(s).digest('hex');
 const roll = () => randomInt(1, 7);
 const uid = () => randomUUID();
@@ -150,6 +155,36 @@ app.use('/api', rateLimit({ windowMs: 60000, limit: 240, standardHeaders: 'draft
 const authLimit = rateLimit({ windowMs: 3600000, limit: 20, standardHeaders: 'draft-8', legacyHeaders: false });
 app.get('/api/config', (req, res) => res.json({ mode: allowGuests ? 'review' : 'production', allowGuests, sms: smsReady, video: videoReady, smartDice: false, rules: 'liars-dice-v1' }));
 app.get('/api/health', (req, res) => res.json({ ok: true, version: '0.1.0' }));
+// Moderator access is separate from user sessions and is disabled unless a
+// secret is configured. This portal intentionally does not store the key.
+const adminToken = process.env.ADMIN_TOKEN || '';
+const adminLimit = rateLimit({windowMs: 60000, limit: 40, standardHeaders: 'draft-8', legacyHeaders: false});
+app.use('/admin/api', adminLimit, (req, res, next) => {
+  const supplied = req.headers.authorization?.replace(/^Bearer /, '') || '';
+  if (!adminToken || adminToken.length < 32 || !supplied ||
+      !timingSafeEqual(Buffer.from(hash(supplied), 'hex'), Buffer.from(hash(adminToken), 'hex')))
+    return res.status(401).json({error: 'Moderator access is not configured or the key is invalid.'});
+  next();
+});
+app.get('/admin/api/reports', (req, res) => {
+  const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 50));
+  const offset = Math.min(5000, Math.max(0, Number.parseInt(req.query.offset, 10) || 0));
+  const status = req.query.status === 'reviewed' ? 'reviewed' : req.query.status === 'open' ? 'open' : null;
+  const rows = db.prepare(`SELECT id, reporter_id AS reporterId, target_id AS targetId,
+    room_id AS roomId, reason, details, created_at AS createdAt,
+    status, reviewed_at AS reviewedAt FROM reports
+    WHERE (? IS NULL OR status=?) ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+    .all(status, status, limit, offset);
+  res.json({reports: rows, count: db.prepare('SELECT COUNT(*) AS n FROM reports WHERE (? IS NULL OR status=?)').get(status,status).n});
+});
+app.patch('/admin/api/reports/:id', (req, res) => {
+  if (!['open','reviewed'].includes(req.body.status)) fail('Invalid review status.');
+  const result = db.prepare('UPDATE reports SET status=?, reviewed_at=? WHERE id=?')
+    .run(req.body.status, req.body.status === 'reviewed' ? Date.now() : null, req.params.id);
+  if (result.changes !== 1) fail('Report not found.', 404);
+  res.json({ok: true});
+});
+app.use('/admin', express.static(resolve(root, 'server/admin'), {index: 'index.html', maxAge: 0}));
 app.post('/api/auth/guest', authLimit, (req, res) => {
   if (!allowGuests) fail('Practice accounts are disabled on this server.', 403);
   if (!validName(req.body.name)) fail('Use 3–20 letters, numbers or underscores.');
@@ -232,7 +267,7 @@ app.post('/api/reports', (req, res) => {
   const recent = db.prepare('SELECT COUNT(*) AS n FROM reports WHERE reporter_id=? AND created_at>?')
     .get(req.user.id, Date.now() - 86400000).n;
   if (recent >= 10) fail('Daily report limit reached.', 429);
-  db.prepare('INSERT INTO reports VALUES (?,?,?,?,?,?,?)')
+  db.prepare('INSERT INTO reports (id, reporter_id, target_id, room_id, reason, details, created_at) VALUES (?,?,?,?,?,?,?)')
     .run(uid(), req.user.id, userId, roomId, reason, details.trim(), Date.now());
   res.status(201).json({ received: true });
 });

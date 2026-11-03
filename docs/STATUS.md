@@ -2,6 +2,21 @@
 
 Working code and verified provider integrations are different. This first browser delivery is not a production certification.
 
+## Autonomous verification update · 2026-11-03
+
+| Area | Web | Android / iOS | Still missing |
+|---|---|---|---|
+| Rendering | Cloud browser could load Flutter and navigate to practice, but its GPU has **WebGL disabled**. Explicit original-artwork error screen now replaces infinite spinner. Optional software-WebGL Playwright CI checks 320/393/430px after push. | Native app builds via GitHub Actions; no physical device available | Actual GPU screenshot and touch acceptance against reference |
+| Gameplay | Node engine simulates 100 full matches; Flutter practice 30 full eight-player matches; API integration tests 8 actual HTTP users, two WebSocket clients, turn race/409, player privacy, catch, payout-once and reconnect | Logic shared with web; real OS input not verified | Real-device touch test and server soak test |
+| Accounts | Guest review sessions persist through real server stop/restart in integration test, SMS stays unconfigured | Secure native session storage compiled in CI | Real phone SMS delivery and security review |
+| Video | Token verifier tests watcher vs player media grants, stranger denied | LiveKit client compiles | Live media server and multi-camera test with physical clients |
+| Clips | Optional Playwright browser job captures 10-second canvas recording and stores clip as artifact | WebView recording/sharing not validated | Real Instagram/TikTok app handoff, MP4 compatibility |
+| Moderation | `/admin/` portal with secure report listing and reviewed/open status, protected by `ADMIN_TOKEN`; tests cover unauthorized access and state change | Available via hosted API in browser | Moderator enforcement workflow and production admin operation |
+| Persistence | Online WAL snapshot with `VACUUM INTO`, integrity verification and backup/restore-copy drill passed in temporary CI data | Same backend | Paid durable deployment, off-site backups, disaster restore drill |
+| Infrastructure | GitHub Pages already live. `render.yaml` ready for approval; no Render resources purchased. | Debug APK and unsigned iOS build available | Explicit paid-plan authorization, SMS/video keys, store accounts/signing |
+
+This distinction matters: automatic token generation and browser recordings are **not** proof of a functioning real-world LiveKit call or native social-app sharing.
+
 | Area | Implemented | Still required |
 |---|---|---|
 | Flutter web | Portrait phone preview; 3D table fills the available game viewport; room/players/chat/video are floating controls or sheets, without permanent header or player strip | Real-phone browser/device matrix and visual acceptance against the supplied screenshot |
@@ -12,13 +27,13 @@ Working code and verified provider integrations are different. This first browse
 | SMS | Twilio Verify adapter, consent/verification UI; no fake OTP | Company credentials and real delivery/failure tests; other SMS providers not yet integrated |
 | Video/watchers | LiveKit Flutter adapter; player publishing/watcher subscription tokens; cameras/mics off by default; video removal and old token revocation on leave/block | Credentials; 8-person real video/network tests; provider revocation tests |
 | Profiles/search/privacy | Unique username, bio, search, private profiles, symmetric room-entry blocks | Rename propagation in existing tables; complete existing-call block behavior |
-| Chat/reactions/history | Durable bounded messages, spam limits, reactions, catch history and dice reveals; abuse reports with rate limits | Moderator review/enforcement tooling, production retention policy |
+| Chat/reactions/history | Durable bounded messages, spam limits, reactions, catch history and dice reveals; abuse reports with rate limits; basic `/admin/` report review portal | Moderator enforcement and account sanctions, production retention policy |
 | Crews/invites/rematches | Create/join/list crew, invite-only tables, shared codes, rematch consent | Crew leave/delete/ownership/moderation; further host departure UX |
 | Clips | Browser records/downloads 10 seconds of the table canvas and presents the OS Web Share chooser for the file where supported | Not a rolling replay buffer; social targets/MP4 support vary; native WebView capture and TikTok/Instagram acceptance require device tests |
 | Limits | Persisted UTC server usage/caps; configurable settings; practice session timer | Visible connected reminders and cross-device practice accounting |
 | GoDice | Experimental community-MIT BLE scanner, five D6 connections, stable rolls/battery and optionally a complete unopened offline-practice hand | Hardware verification, server-trusted roll protocol, manufacturer commercial authorization |
 | Native | Android/iOS shells, camera/mic/BLE permissions, hosted ZIP WebView with correctly sourced JavaScript events, secure session storage | Real-device visual/gameplay/capture verification, signing, store publishing |
-| API hosting | Render Blueprint for one authoritative Node instance with persistent SQLite disk | Approval of paid compute/disk, credentials, deployment/restart/restore tests |
+| API hosting | Render Blueprint for one authoritative Node instance with persistent SQLite disk; WAL-safe snapshot/verification utility and tested restart/reconnect | Approval of paid compute/disk, credentials, deployed/restart/restore tests and independent off-site copies |
 | Media hosting | Local LiveKit dev Compose and production VM guidance | Public UDP/TURN/TLS media node or LiveKit Cloud |
 | CI | Pinned SDK and committed dependency lock, Flutter/Node tests, web artifact/Pages; new Android and unsigned iOS compile jobs | Verify current Actions outcomes |
 

@@ -132,7 +132,9 @@ export function attachBridge({ canvas, ui, hint, setDice, roll }) {
     try {
       const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
       if (data?.type === 'state') apply(data);
-      if (data?.type === 'clip') capture();
+      // Status notifications also have type "clip". On a standalone table,
+      // parent === window, so never treat those replies as fresh commands.
+      if (data?.type === 'clip' && !Object.hasOwn(data, 'message')) capture();
     } catch { send({type:'clip',message:'Table command failed.'}); }
   });
   return { ready() {
