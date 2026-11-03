@@ -1,0 +1,22 @@
+name: street_circle
+description: Street Circle — free-coin social Liar's Dice.
+publish_to: none
+version: 0.1.0+1
+environment:
+  sdk: '>=3.8.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.5.0
+  web_socket_channel: ^3.0.3
+  shared_preferences: ^2.5.3
+  livekit_client: ^2.5.4
+  web: ^1.1.1
+  webview_flutter: ^4.13.0
+  cupertino_icons: ^1.0.8
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+flutter:
+  uses-material-design: true

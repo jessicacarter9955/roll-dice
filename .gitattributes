@@ -1,0 +1,2 @@
+# Preserve supplied third-party code; do not apply project whitespace checks to it.
+web/table/vendor/** -whitespace

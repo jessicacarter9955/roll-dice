@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Street Circle · Portrait table</title>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+    <script type="importmap">
+        { "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/" } }
+    </script>
+
+
+</head>
+
+<body>
+    <div id="loading-overlay">Loading table…</div>
+    <div id="game-screen">
+        <canvas id="c" aria-label="Original 3D dice table in portrait"></canvas>
+        <div class="settingsMenu">
+            <div class="settings">
+                <span class="chip" title="Volume">
+            <button id="muteBtn" aria-label="Toggle mute" class="icon-btn">
+              🔈
+            </button>
+            <p>VOLUME: 1</p>
+          </span>
+                <span class="chip">
+            <button id="changeArt" title="Change board art">🎨</button>
+            <p>IMAGE: 1</p>
+          </span>
+                <span class="chip">
+            <button id="fastStart" title="Skip shake">🎲</button>
+            <p>SHAKE: ON</p>
+          </span>
+            </div>
+        </div>
+
+        <div class="table-readout"><span id="roundLabel">WAITING</span><span>Bid: <b id="currentBid">—</b></span><span><b id="totalDice">0</b> dice</span></div>
+        <div class="dock" role="group" aria-label="Game controls and statistics">
+          <div class="dock-panel" hidden>
+            <div class="hint" id="hint" aria-live="polite"></div>
+            <div class="stats">
+              <span class="chip">Balance: <strong id="balance">1000</strong></span>
+              <span class="chip">In Play: <strong id="inPlay">0</strong></span>
+            </div>
+            <div class="bid-controls">
+              <label class="chip" id="playerBet">Bid: <input aria-label="Bid quantity" type="number" id="betInput" value="1" min="1" max="40" step="1" /></label>
+              <select id="bidFace" aria-label="Bid face"><option value="1">⚀</option><option value="2">⚁</option><option value="3">⚂</option><option value="4">⚃</option><option value="5">⚄</option><option value="6">⚅</option></select>
+              <div class="actions"><span class="roll-action"><button id="rollBtn" aria-label="Place bid" disabled></button><span id="rollLabel">Bid</span></span><button id="catchBtn" disabled>Catch!</button></div>
+            </div>
+            <button id="reopenResult" hidden>View results</button>
+          </div>
+        </div>
+        <div id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+          <h2 id="resultTitle">Catch Results</h2>
+          <div class="handline"><span>Outcome</span><b id="pHand">—</b><span id="pIcons" class="icons"></span></div>
+          <div class="handline"><span>Count</span><b id="aHand">—</b><span id="aIcons" class="icons"></span></div>
+          <div id="winlose" class="result">—</div>
+          <div id="revealHands"></div><div class="settlement">Result: <span id="sum">0</span></div>
+          <div class="actions"><button id="dismissResult">View table</button><button id="newGameBtn">Next round</button></div>
+        </div>
+
+        <audio id="sShake" src="src/sfx/shakeDices.mp3" preload="auto"></audio>
+        <audio id="sRoll" src="src/sfx/rollingDices.mp3" preload="auto"></audio>
+    </div>
+    <!-- consolidated volume control lives inside the dock panel actions -->
+    <script type="module" src="script.js"></script>
+</body>
+
+</html>
