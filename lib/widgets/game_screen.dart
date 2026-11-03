@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:livekit_client/livekit_client.dart';
 import '../services/app_model.dart';
 import '../services/video.dart';
+import '../services/smart_dice.dart';
 import 'game_table.dart';
 import 'ui.dart';
 import 'forms.dart';
@@ -18,6 +19,13 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   int clip = 0;
+  final smartDice = SmartDiceController();
+
+  @override
+  void dispose() {
+    smartDice.dispose();
+    super.dispose();
+  }
   AppModel get app => widget.app;
   Map<String, dynamic>? get game => app.game;
   void message(String s) {
@@ -193,7 +201,7 @@ class _GameScreenState extends State<GameScreen> {
         message('Table invite code copied.');
         return;
       case 'dice':
-        message('Server-generated dice are active. GoDice hardware integration is pending.');
+        modal(smartDicePanel());
         return;
     }
   }
@@ -222,11 +230,148 @@ class _GameScreenState extends State<GameScreen> {
             ),
             title: Text(app.players[i]['name'] as String),
             subtitle: Text('${app.players[i]['count'] ?? 5} dice · ${app.players[i]['bot'] == true ? 'BOT' : 'PLAYER'}'),
-            trailing: i == turn ? const Icon(Icons.casino, color: gold) : null,
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              if (i == turn) const Icon(Icons.casino, color: gold),
+              if (app.practice == null &&
+                  app.players[i]['id'] != app.myId &&
+                  app.players[i]['bot'] != true)
+                IconButton(
+                  tooltip: 'Report player',
+                  onPressed: () => reportPlayer(app.players[i]),
+                  icon: const Icon(Icons.flag_outlined, size: 19),
+                ),
+            ]),
           ),
       ],
     );
   }
+
+  Future<void> reportPlayer(Map<String, dynamic> player) async {
+    String reason = 'harassment';
+    final details = TextEditingController();
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, update) => AlertDialog(
+          title: Text('Report ${player['name']}'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            DropdownButton<String>(
+              isExpanded: true,
+              value: reason,
+              onChanged: (value) => update(() => reason = value!),
+              items: const [
+                DropdownMenuItem(value: 'harassment', child: Text('Harassment')),
+                DropdownMenuItem(value: 'spam', child: Text('Spam')),
+                DropdownMenuItem(value: 'inappropriate-video', child: Text('Inappropriate video')),
+                DropdownMenuItem(value: 'cheating', child: Text('Cheating')),
+                DropdownMenuItem(value: 'other', child: Text('Other')),
+              ],
+            ),
+            TextField(
+              controller: details,
+              maxLines: 3,
+              maxLength: 1000,
+              decoration: const InputDecoration(labelText: 'Details (optional)'),
+            ),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Send report')),
+          ],
+        ),
+      ),
+    );
+    final message = details.text;
+    details.dispose();
+    if (accepted != true) return;
+    await app.run(() async {
+      await app.request('/reports', method: 'POST', body: {
+        'userId': player['id'], 'roomId': app.room?['id'],
+        'reason': reason, 'details': message,
+      });
+    });
+    if (app.error == null) messageToast('Report received. Thank you.');
+  }
+
+  void messageToast(String value) => message(value);
+
+  Widget smartDicePanel() => AnimatedBuilder(
+    animation: smartDice,
+    builder: (context, _) => ListView(
+      padding: const EdgeInsets.all(22),
+      children: [
+        const Text('Physical GoDice · experimental',
+            style: TextStyle(fontSize: 23, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 10),
+        const Text(
+          'Pair up to five GoDice over Bluetooth. Stable D6 rolls appear here. '
+          'Online hands and free coins are still decided by the server; '
+          'phone-supplied BLE values are not trusted as match results.',
+          style: TextStyle(color: muted, fontSize: 12, height: 1.5),
+        ),
+        const SizedBox(height: 16),
+        if (smartDice.error != null)
+          Text(smartDice.error!,
+              style: const TextStyle(color: Color(0xfff0aaa3))),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: smartDice.busy
+              ? null
+              : smartDice.scanning
+                  ? smartDice.stopScan
+                  : smartDice.startScan,
+          icon: Icon(smartDice.scanning ? Icons.stop : Icons.bluetooth_searching),
+          label: Text(smartDice.scanning ? 'Stop scan' : 'Find GoDice'),
+        ),
+        if (smartDice.scanning) const LinearProgressIndicator(),
+        const SizedBox(height: 12),
+        Text('Connected · ${smartDice.connected.length}/5',
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        for (final entry in smartDice.connected.entries)
+          ListTile(
+            leading: const Icon(Icons.casino, color: gold),
+            title: Text(entry.value.name ?? 'GoDice'),
+            subtitle: Text('Battery: ${smartDice.batteries[entry.key]?.toString() ?? '?'}%'),
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text('${smartDice.values[entry.key] ?? '–'}',
+                  style: const TextStyle(fontSize: 24)),
+              IconButton(
+                tooltip: 'Disconnect die',
+                onPressed: () => smartDice.disconnect(entry.key),
+                icon: const Icon(Icons.link_off),
+              ),
+            ]),
+          ),
+        if (smartDice.found.isEmpty && smartDice.connected.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Text('Wake a GoDice by shaking it, then scan.',
+                style: TextStyle(color: muted)),
+          ),
+        for (final entry in smartDice.found.entries)
+          if (!smartDice.connected.containsKey(entry.key))
+            ListTile(
+              leading: const Icon(Icons.bluetooth),
+              title: Text(entry.value.name as String? ?? 'GoDice'),
+              subtitle: Text(entry.key),
+              trailing: OutlinedButton(
+                onPressed: smartDice.busy || smartDice.connected.length >= 5
+                    ? null
+                    : () => smartDice.connect(entry.key),
+                child: const Text('Pair'),
+              ),
+            ),
+        const SizedBox(height: 16),
+        const Text(
+          'Commercial hardware/protocol authorization and real-device '
+          'verification are still required before release.',
+          style: TextStyle(fontSize: 11, color: muted),
+        ),
+      ],
+    ),
+  );
 
   Widget playerAvatar(int i) {
     final player = app.players[i];

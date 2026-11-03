@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../domain/practice.dart';
 
@@ -31,6 +32,34 @@ class AppModel extends ChangeNotifier {
   int practiceSeconds = 0, _failures = 0;
   bool _disposed = false;
   final _client = http.Client();
+  final _secure = const FlutterSecureStorage();
+
+  Future<String?> _readSession(SharedPreferences prefs) async {
+    if (kIsWeb) return prefs.getString('session');
+    final secured = await _secure.read(key: 'session');
+    if (secured != null) return secured;
+    // One-time migration from the original plaintext native preference.
+    final legacy = prefs.getString('session');
+    if (legacy != null) {
+      await _secure.write(key: 'session', value: legacy);
+      await prefs.remove('session');
+    }
+    return legacy;
+  }
+
+  Future<void> _saveSession(String value) async {
+    if (kIsWeb) {
+      await (await SharedPreferences.getInstance()).setString('session', value);
+    } else {
+      await _secure.write(key: 'session', value: value);
+    }
+  }
+
+  Future<void> _deleteSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('session');
+    if (!kIsWeb) await _secure.delete(key: 'session');
+  }
   String get myId => practice != null ? 'local' : user?['id'] as String? ?? '';
   String get name => user?['name'] as String? ?? 'You';
   Map<String, dynamic>? get game => room?['game'] as Map<String, dynamic>?;
@@ -81,7 +110,7 @@ class AppModel extends ChangeNotifier {
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    token = prefs.getString('session');
+    token = await _readSession(prefs);
     api = prefs.getString('api') ?? api;
     try {
       config = Map<String, dynamic>.from(await request('/config') as Map);
@@ -91,7 +120,7 @@ class AppModel extends ChangeNotifier {
           user = Map<String, dynamic>.from(await request('/me') as Map);
         } catch (_) {
           token = null;
-          await prefs.remove('session');
+          await _deleteSession();
         }
       }
       if (user != null) {
@@ -169,7 +198,7 @@ class AppModel extends ChangeNotifier {
     server = true;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('api', api);
-    if (changed) await prefs.remove('session');
+    if (changed) await _deleteSession();
     notifyListeners();
   }
 
@@ -206,8 +235,7 @@ class AppModel extends ChangeNotifier {
   Future<void> _signedIn(Map<String, dynamic> result) async {
     token = result['token'] as String;
     user = Map<String, dynamic>.from(result['user'] as Map);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('session', token!);
+    await _saveSession(token!);
     await refreshRooms();
     connect();
     notifyListeners();
@@ -220,8 +248,7 @@ class AppModel extends ChangeNotifier {
     await _socket?.sink.close();
     token = null;
     user = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('session');
+    await _deleteSession();
     notifyListeners();
   }
 

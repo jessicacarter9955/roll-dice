@@ -1,0 +1,41 @@
+# Phase 1 authoritative API. This Blueprint deliberately does NOT deploy the
+# LiveKit media server: WebRTC needs public UDP/TURN, which a Render HTTP web
+# service alone cannot provide. See infra/livekit/README.md.
+previews:
+  generation: off
+services:
+  - type: web
+    name: street-circle-api
+    runtime: node
+    region: frankfurt
+    plan: starter
+    numInstances: 1
+    autoDeployTrigger: checksPass
+    buildCommand: cd server && npm ci
+    startCommand: cd server && npm start
+    healthCheckPath: /api/health
+    disk:
+      name: street-circle-data
+      mountPath: /opt/render/project/src/server/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ALLOW_GUESTS
+        value: "false"
+      - key: PUBLIC_ORIGIN
+        value: https://jessicacarter9955.github.io
+      - key: DATA_DIR
+        value: /opt/render/project/src/server/data
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_VERIFY_SERVICE_SID
+        sync: false
+      - key: LIVEKIT_URL
+        sync: false
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false

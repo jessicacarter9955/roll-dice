@@ -30,7 +30,7 @@ Copy `.env.example` to `.env` at repository root. Never commit credentials.
 
 - Twilio Verify: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`. The adapter verifies real provider codes; no default/fake OTP exists.
 - LiveKit: `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`. Seated users receive publishing grants, watchers subscription-only grants. Camera/mic start off.
-- Runtime: Node 22.13+ (CI pins 22.23.1), one server instance, durable SQLite in `DATA_DIR`. Multiple independent replicas are not supported.
+- Runtime: Node 22.13+ (CI pins 22.23.1), one server instance, durable SQLite in `DATA_DIR`. Multiple independent replicas are not supported. The `render.yaml` Blueprint deploys an API with persistent disk after paid-plan approval and secret setup.
 - Hosted API: set HTTPS `PUBLIC_ORIGIN` to the client’s origin (e.g. `https://jessicacarter9955.github.io`, without a path), set `NODE_ENV=production` and `ALLOW_GUESTS=false`, use TLS and persistent storage. Remaining production blockers still apply.
 
 To connect the Pages client, set repository Actions variable `API_URL` before building, or use **You → Game service connection**. That service needs its own deployment; it is not supplied by Pages.
@@ -50,7 +50,9 @@ Tests cover turn/bid validation, dice privacy, catches, elimination, forfeiture,
 
 ## Mobile and ownership
 
-The repository includes Android/iOS Flutter project shells and video permission descriptions. Native builds and physical-device verification remain open. The native table WebView accepts `--dart-define=TABLE_URL=https://your-client/table/index.html`. GoDice BLE, secure native session storage, signing and native social sharing are unfinished.
+The repository includes Android/iOS Flutter shells with video/BLE permissions. CI now attempts an Android debug APK and unsigned iOS compile. The native table WebView defaults to the hosted original board and accepts `--dart-define=TABLE_URL=https://your-client/table/index.html`. Native sessions use Apple Keychain/Android encrypted storage, migrating old preferences once.
+
+Experimental GoDice uses MIT community BLE packages to read up to five physical D6 rolls without allowing the phone to alter a server-certified free-coin hand. Real-hardware tests and manufacturer commercial rights remain necessary. LiveKit can be managed or self-hosted on a dedicated node; see [media deployment notes](infra/livekit/README.md). Native clips, store signing and full production certification remain unfinished.
 
 All source is in this user-controlled repository. No third-party project accounts were created. ZIP art/audio commercial rights need confirmation; see [asset provenance](docs/ASSETS.md).
 

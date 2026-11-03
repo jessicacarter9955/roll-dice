@@ -2,7 +2,7 @@ import express from 'express';
 import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
 import { WebSocketServer, WebSocket } from 'ws';
-import { AccessToken } from 'livekit-server-sdk';
+import { AccessToken, RoomServiceClient } from 'livekit-server-sdk';
 import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, randomUUID, randomInt, createHash } from 'node:crypto';
 import { mkdirSync, existsSync } from 'node:fs';
@@ -16,6 +16,11 @@ const production = process.env.NODE_ENV === 'production';
 const allowGuests = !production && process.env.ALLOW_GUESTS !== 'false';
 const smsReady = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_VERIFY_SERVICE_SID'].every(k => process.env[k]);
 const videoReady = ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET'].every(k => process.env[k]);
+const mediaService = videoReady ? new RoomServiceClient(
+  process.env.LIVEKIT_URL.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:'),
+  process.env.LIVEKIT_API_KEY,
+  process.env.LIVEKIT_API_SECRET,
+) : null;
 const origin = process.env.PUBLIC_ORIGIN || 'http://localhost:8787';
 if (production && !process.env.PUBLIC_ORIGIN?.startsWith('https://')) throw new Error('Production requires an HTTPS PUBLIC_ORIGIN.');
 const dataDir = resolve(process.env.DATA_DIR || resolve(root, 'server/data'));
@@ -25,7 +30,8 @@ db.exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, phone TEXT UNIQUE, username TEXT UNIQUE COLLATE NOCASE, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS sessions (hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), expires INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS rooms (id TEXT PRIMARY KEY, data TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS crews (id TEXT PRIMARY KEY, code TEXT UNIQUE, data TEXT NOT NULL);`);
+CREATE TABLE IF NOT EXISTS crews (id TEXT PRIMARY KEY, code TEXT UNIQUE, data TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS reports (id TEXT PRIMARY KEY, reporter_id TEXT NOT NULL, target_id TEXT NOT NULL, room_id TEXT, reason TEXT NOT NULL, details TEXT NOT NULL, created_at INTEGER NOT NULL);`);
 const hash = s => createHash('sha256').update(s).digest('hex');
 const roll = () => randomInt(1, 7);
 const uid = () => randomUUID();
@@ -91,6 +97,20 @@ function roomView(room, user) {
 }
 function notifyUser(id, message) {
   for (const ws of connections.get(id) || []) if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
+}
+// A participant who leaves/gets blocked must lose live camera access too.
+// revokeTokenTs also invalidates an already issued join token (not just the
+// currently connected media socket). Failures are logged, never hidden.
+async function kickVideo(roomId, userId) {
+  if (!mediaService) return;
+  try {
+    await mediaService.removeParticipant(roomId, userId, {
+      revokeTokenTs: BigInt(Math.floor(Date.now() / 1000)),
+    });
+  } catch (e) {
+    if (!/not found|does not exist/i.test(e.message || ''))
+      console.error('LiveKit revocation failed:', roomId, e.message);
+  }
 }
 function broadcast(room) {
   for (const id of new Set([...room.players.filter(p => !p.bot).map(p => p.id), ...room.watchers])) {
@@ -185,13 +205,36 @@ app.get('/api/players', (req, res) => {
   const list = db.prepare('SELECT data FROM users LIMIT 5000').all().map(r => JSON.parse(r.data)).filter(u => !u.private && u.id !== req.user.id && !blocked(u, req.user) && u.name.toLowerCase().includes(q));
   res.json(list.slice(0, 30).map(publicUser));
 });
-app.post('/api/blocks/:id', (req, res) => {
+app.post('/api/blocks/:id', async (req, res) => {
   if (req.params.id === req.user.id) fail('You cannot block yourself.');
   getUser(req.params.id);
   const u = req.user;
   if (req.body.blocked !== false) u.blocked = [...new Set([...u.blocked, req.params.id])];
   else u.blocked = u.blocked.filter(id => id !== req.params.id);
-  saveUser(u); res.json(me(u));
+  saveUser(u);
+  if (req.body.blocked !== false) {
+    const shared = [...rooms.values()].filter(r =>
+      inRoom(r, req.user) && inRoom(r, {id: req.params.id}));
+    await Promise.all(shared.flatMap(r => [
+      kickVideo(r.id, req.user.id), kickVideo(r.id, req.params.id),
+    ]));
+  }
+  res.json(me(u));
+});
+app.post('/api/reports', (req, res) => {
+  const { userId, roomId = null, reason, details = '' } = req.body;
+  if (typeof userId !== 'string' || userId === req.user.id ||
+      !['harassment', 'spam', 'inappropriate-video', 'cheating', 'other'].includes(reason) ||
+      typeof details !== 'string' || details.length > 1000 ||
+      (roomId !== null && (typeof roomId !== 'string' || roomId.length > 80)))
+    fail('Select another player, a reason and up to 1,000 detail characters.');
+  getUser(userId);
+  const recent = db.prepare('SELECT COUNT(*) AS n FROM reports WHERE reporter_id=? AND created_at>?')
+    .get(req.user.id, Date.now() - 86400000).n;
+  if (recent >= 10) fail('Daily report limit reached.', 429);
+  db.prepare('INSERT INTO reports VALUES (?,?,?,?,?,?,?)')
+    .run(uid(), req.user.id, userId, roomId, reason, details.trim(), Date.now());
+  res.status(201).json({ received: true });
 });
 app.get('/api/rooms', (req, res) => res.json([...rooms.values()].filter(r => !r.private && Date.now() - r.updatedAt < 86400000 && !r.players.some(p => !p.bot && blocked(req.user, getUser(p.id))))
   .map(r => ({ id: r.id, name: r.name, players: r.players.length, watchers: r.watchers.length, ante: r.ante, phase: r.game?.phase || 'waiting' }))));
@@ -283,13 +326,14 @@ app.post('/api/rooms/:id/rematch', (req, res) => {
   mutate(room, () => { room.rematch = [...new Set([...room.rematch, req.user.id])]; });
   res.json(roomView(room, req.user));
 });
-app.post('/api/rooms/:id/leave', (req, res) => {
+app.post('/api/rooms/:id/leave', async (req, res) => {
   const room = tableFor(req);
   mutate(room, () => {
     if (room.game) forfeit(room.game, req.user.id);
     room.players = room.players.filter(p => p.id !== req.user.id); room.watchers = room.watchers.filter(id => id !== req.user.id);
     if (room.hostId === req.user.id) room.hostId = room.players.find(p => !p.bot)?.id || '';
   });
+  await kickVideo(room.id, req.user.id);
   res.json({ ok: true });
 });
 app.post('/api/rooms/:id/video-token', async (req, res) => {

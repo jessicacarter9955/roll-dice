@@ -67,6 +67,11 @@ test('connected table: privacy, limits, idempotency, chat, crews and atomic coin
   const crew = (await api('/crews',a.token,{name:'Test crew'})).data;
   assert.equal((await api('/crews/join',c.token,{code:crew.code})).status,200);
   assert.equal((await api('/crews',a.token)).data[0].members.length,2);
+  assert.equal((await api('/reports',a.token,{userId:a.user.id,reason:'spam'})).status,400);
+  assert.equal((await api('/reports',a.token,{userId:c.user.id,reason:'unknown'})).status,400);
+  assert.equal((await api('/reports',a.token,{userId:c.user.id,roomId,reason:'harassment',details:'Test report'})).status,201);
+  for (let i=0;i<9;i++) assert.equal((await api('/reports',a.token,{userId:c.user.id,reason:'spam'})).status,201);
+  assert.equal((await api('/reports',a.token,{userId:c.user.id,reason:'spam'})).status,429);
   await api('/me',b.token,{private:true},'PATCH');
   assert.ok(!(await api('/players?q=Bo',a.token)).data.some(p=>p.id===b.user.id));
   await api(`/blocks/${c.user.id}`,a.token,{blocked:true});

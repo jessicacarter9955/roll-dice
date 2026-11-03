@@ -29,7 +29,11 @@ class _GameTableState extends State<GameTable> {
   @override
   void initState() {
     super.initState();
-    const url = String.fromEnvironment('TABLE_URL');
+    // GitHub Pages serves the exact ZIP-derived table until the native asset
+    // bundle has been verified on both WebView engines. Can be overridden for
+    // staging/private hosting with --dart-define=TABLE_URL=... .
+    const url = String.fromEnvironment('TABLE_URL',
+        defaultValue: 'https://jessicacarter9955.github.io/roll-dice/table/index.html');
     if (url.isNotEmpty) {
       controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
