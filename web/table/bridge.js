@@ -97,7 +97,15 @@ export function attachBridge({ canvas, ui, hint, setDice, roll }) {
     highlight = null;
     send({type:'clip',message:'Recording 10 seconds of the table. Cameras and chat are excluded.'});
     const stream = canvas.captureStream(30), chunks = [];
-    const mimeType = ['video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8'].find(t => MediaRecorder.isTypeSupported(t));
+    // Some Chromium builds claim `video/mp4` support but encode VP9 inside an
+    // MP4 container, which many social apps reject. Only choose MP4 with an
+    // explicit H.264 codec; otherwise provide a truthful WebM download.
+    const mimeType = [
+      'video/mp4;codecs=avc1.42E01E',
+      'video/webm;codecs=vp8',
+      'video/webm;codecs=vp9',
+      'video/webm',
+    ].find(t => MediaRecorder.isTypeSupported(t));
     try {
       const recorder = new MediaRecorder(stream, mimeType ? {mimeType} : {});
       recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
