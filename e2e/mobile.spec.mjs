@@ -46,6 +46,10 @@ test('Flutter portrait lobby enters practice with the original renderer behind c
   await expect(table.locator('#loading-overlay')).toBeHidden({timeout: 20000});
   await expect(table.locator('#loader')).toHaveCount(0);
   await expect(table.locator('#graphics-error')).toBeHidden();
+  // Do not capture the initial empty racks while the physical dice are still
+  // tumbling: the original board should show the player's finished hand.
+  await expect(table.locator('canvas#c')).toHaveAttribute('data-dice-ready', 'true', {timeout: 20000});
+  await page.waitForTimeout(300); // One compositing frame for the embedded WebGL canvas.
   await page.screenshot({path: 'visual-artifacts/flutter-practice-393x852.png'});
 });
 

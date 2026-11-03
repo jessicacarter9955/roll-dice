@@ -84,10 +84,17 @@ export function attachBridge({ canvas, ui, hint, setDice, roll }) {
     updateButtons();
     const other = ended ? data.resolution?.dice?.find(p => p.id === data.resolution.bid.playerId)?.dice || [] : [];
     if (renderedRound !== data.round && data.dice?.length && !animating) {
-      renderedRound = data.round; animating = true; setDice([], []);
+      renderedRound = data.round; animating = true; canvas.dataset.diceReady = 'false'; setDice([], []);
       try { await roll(Math.min(5, data.dice.length)); }
-      finally { animating = false; setDice(state.dice || [], ['reveal','finished'].includes(state.phase) ? state.resolution?.dice?.find(p => p.id === state.resolution.bid.playerId)?.dice || [] : []); }
-    } else if (!animating) setDice(data.dice || [], other);
+      finally {
+        animating = false;
+        setDice(state.dice || [], ['reveal','finished'].includes(state.phase) ? state.resolution?.dice?.find(p => p.id === state.resolution.bid.playerId)?.dice || [] : []);
+        canvas.dataset.diceReady = 'true';
+      }
+    } else if (!animating) {
+      setDice(data.dice || [], other);
+      canvas.dataset.diceReady = 'true';
+    }
   }
   async function capture() {
     if (recording) return;
