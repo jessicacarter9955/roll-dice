@@ -36,7 +36,8 @@ test('Flutter portrait lobby enters practice with the original renderer behind c
     await practice.click();
   } else {
     await page.waitForTimeout(1200); // Allow CanvasKit's first rasterized frame.
-    await page.mouse.click(196, 440);
+    // CI failure screenshot (393x852) places the CTA at x=41..352, y=385..425.
+    await page.mouse.click(196, 405);
   }
   // The embedded real 3D table is the evidence of a successful transition;
   // no assertion below depends on Flutter's optional accessibility overlay.
