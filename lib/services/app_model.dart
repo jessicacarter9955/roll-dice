@@ -359,6 +359,12 @@ class AppModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void usePhysicalPracticeDice(List<int> values) {
+    if (practice == null) throw StateError('Open a practice match first.');
+    practice!.setPhysicalDice(values);
+    _syncPractice();
+  }
+
   Future<void> action(Map<String, dynamic> action) async {
     if (practice != null) {
       if (practiceSeconds >= (user?['dailyMinutes'] as int? ?? 120) * 60) {

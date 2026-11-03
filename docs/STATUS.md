@@ -16,7 +16,7 @@ Working code and verified provider integrations are different. This first browse
 | Crews/invites/rematches | Create/join/list crew, invite-only tables, shared codes, rematch consent | Crew leave/delete/ownership/moderation; further host departure UX |
 | Clips | Browser records/downloads 10 seconds of the table canvas and presents the OS Web Share chooser for the file where supported | Not a rolling replay buffer; social targets/MP4 support vary; native WebView capture and TikTok/Instagram acceptance require device tests |
 | Limits | Persisted UTC server usage/caps; configurable settings; practice session timer | Visible connected reminders and cross-device practice accounting |
-| GoDice | Experimental community-MIT BLE scanner, up to five D6 connections, stable roll values, battery and platform permissions | Hardware verification, server-trusted roll protocol, manufacturer commercial authorization |
+| GoDice | Experimental community-MIT BLE scanner, five D6 connections, stable rolls/battery and optionally a complete unopened offline-practice hand | Hardware verification, server-trusted roll protocol, manufacturer commercial authorization |
 | Native | Android/iOS shells, camera/mic/BLE permissions, hosted ZIP WebView with correctly sourced JavaScript events, secure session storage | Real-device visual/gameplay/capture verification, signing, store publishing |
 | API hosting | Render Blueprint for one authoritative Node instance with persistent SQLite disk | Approval of paid compute/disk, credentials, deployment/restart/restore tests |
 | Media hosting | Local LiveKit dev Compose and production VM guidance | Public UDP/TURN/TLS media node or LiveKit Cloud |

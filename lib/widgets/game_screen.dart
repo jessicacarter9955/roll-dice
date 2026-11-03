@@ -339,6 +339,29 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ]),
           ),
+        if (app.practice != null &&
+            app.game?['phase'] == 'bidding' &&
+            app.game?['bid'] == null)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: FilledButton(
+              onPressed: smartDice.connected.length == app.myDice.length &&
+                      smartDice.connected.keys.every(smartDice.values.containsKey)
+                  ? () {
+                      try {
+                        app.usePhysicalPracticeDice([
+                          for (final id in smartDice.connected.keys)
+                            smartDice.values[id]!,
+                        ]);
+                        message('Physical D6 hand applied to local practice.');
+                      } catch (e) {
+                        message(e.toString());
+                      }
+                    }
+                  : null,
+              child: const Text('Use these rolls in offline practice'),
+            ),
+          ),
         if (smartDice.found.isEmpty && smartDice.connected.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
