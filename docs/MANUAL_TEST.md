@@ -11,7 +11,7 @@ These are test suggestions, not a claim that every scenario has been manually pa
 5. Catch a bid. In the result window, count matching faces across all revealed hands. Ones must be literal. The correct player loses a die. **View table** dismisses the result window; **View results** reopens it.
 6. Press **Next round**, verify reroll and losing-player start. Play through elimination to a winner, then **Play again**.
 7. Send chat and reactions; practice chat stays local. Open History to inspect bids/catches. Bots do not pretend to chat or have cameras.
-8. Export a 10-second table clip from the menu. Expect a browser video download, not automatic social publishing. MediaRecorder support varies.
+8. Record a 10-second table clip from the menu. Expect a browser video download and then a **Share 10s highlight** button; tap it to open the OS share chooser where Web Share supports video files. On unsupported devices, import the downloaded video manually into TikTok/Instagram. Test MP4 versus WebM; no direct integration with either social account is claimed.
 9. Leave; practice must not change the wallet.
 
 ## Connected rooms

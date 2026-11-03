@@ -444,3 +444,19 @@ html,body{background:#171612;font-size:11px}
 .modal h2{font-size:16px}.modal .handline{margin:6px 0;padding:6px}.modal .handline>span{font-size:10px;color:#b1b9bd}.modal .handline b{font-size:13px}.modal .result{font-size:18px}
 .revealed-hand{display:flex;justify-content:space-between;align-items:center;padding:4px 7px;border-bottom:1px solid #ffffff12}.revealed-hand span{font-size:11px}.revealed-hand b{font-size:23px;font-weight:400;letter-spacing:2px}
 .modal .actions{display:flex;justify-content:center;gap:9px;margin-top:12px}.modal .actions button{font-size:11px;border:1px solid #e0c87866;padding:8px;border-radius:7px}
+/* Hidden until a clip finishes recording; leaves the original board intact. */
+.clip-share[hidden] { display: none !important; }
+.clip-share {
+  position: fixed;
+  z-index: 35;
+  left: 50%;
+  bottom: 76px;
+  transform: translateX(-50%);
+  padding: 11px 17px;
+  border: 1px solid #e5c957;
+  border-radius: 18px;
+  color: #10130f;
+  background: #f8e35c;
+  font: 600 13px Arial, sans-serif;
+  box-shadow: 0 4px 16px #0008;
+}

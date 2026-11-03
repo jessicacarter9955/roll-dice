@@ -14,10 +14,10 @@ Working code and verified provider integrations are different. This first browse
 | Profiles/search/privacy | Unique username, bio, search, private profiles, symmetric room-entry blocks | Rename propagation in existing tables; complete existing-call block behavior |
 | Chat/reactions/history | Durable bounded messages, spam limits, reactions, catch history and dice reveals; abuse reports with rate limits | Moderator review/enforcement tooling, production retention policy |
 | Crews/invites/rematches | Create/join/list crew, invite-only tables, shared codes, rematch consent | Crew leave/delete/ownership/moderation; further host departure UX |
-| Clips | Browser records/exports 10 seconds of table canvas | Not a rolling replay buffer; no direct TikTok/Instagram publishing; native capture/share and consent policies |
+| Clips | Browser records/downloads 10 seconds of the table canvas and presents the OS Web Share chooser for the file where supported | Not a rolling replay buffer; social targets/MP4 support vary; native WebView capture and TikTok/Instagram acceptance require device tests |
 | Limits | Persisted UTC server usage/caps; configurable settings; practice session timer | Visible connected reminders and cross-device practice accounting |
 | GoDice | Experimental community-MIT BLE scanner, up to five D6 connections, stable roll values, battery and platform permissions | Hardware verification, server-trusted roll protocol, manufacturer commercial authorization |
-| Native | Android/iOS shells, camera/mic/BLE permissions, hosted table WebView, secure session storage | Native CI/device verification, signing, sharing and stores |
+| Native | Android/iOS shells, camera/mic/BLE permissions, hosted ZIP WebView with correctly sourced JavaScript events, secure session storage | Real-device visual/gameplay/capture verification, signing, store publishing |
 | API hosting | Render Blueprint for one authoritative Node instance with persistent SQLite disk | Approval of paid compute/disk, credentials, deployment/restart/restore tests |
 | Media hosting | Local LiveKit dev Compose and production VM guidance | Public UDP/TURN/TLS media node or LiveKit Cloud |
 | CI | Pinned SDK and committed dependency lock, Flutter/Node tests, web artifact/Pages; new Android and unsigned iOS compile jobs | Verify current Actions outcomes |

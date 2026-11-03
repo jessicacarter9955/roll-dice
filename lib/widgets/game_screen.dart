@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:livekit_client/livekit_client.dart';
@@ -190,11 +189,7 @@ class _GameScreenState extends State<GameScreen> {
         showSheet(context, const RulesContent());
         return;
       case 'clip':
-        if (kIsWeb) {
-          setState(() => clip++);
-        } else {
-          message('Table clip export is currently available in the web build.');
-        }
+        setState(() => clip++);
         return;
       case 'invite':
         Clipboard.setData(ClipboardData(text: app.room!['inviteCode'] as String));

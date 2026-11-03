@@ -41,6 +41,7 @@ class _GameTableState extends State<GameTable> {
           'StreetCircleBridge',
           onMessageReceived: (message) {
             final data = jsonDecode(message.message) as Map;
+            if (data['type'] == 'ready') _send();
             if (data['type'] == 'action') {
               widget.onAction?.call(
                 Map<String, dynamic>.from(data['action'] as Map),
@@ -58,13 +59,25 @@ class _GameTableState extends State<GameTable> {
     }
   }
 
-  void _send() => controller?.runJavaScript(
-    'window.dispatchEvent(new MessageEvent("message", {data: ${jsonEncode(jsonEncode({'type': 'state', 'dice': widget.dice, 'round': widget.round, 'art': widget.art, 'muted': widget.muted, ...widget.state}))}, origin: location.origin}));',
+  // Real postMessage sets event.source to window. A synthetic MessageEvent
+  // leaves source null, and the ZIP bridge correctly rejects that message.
+  void _post(Map<String, dynamic> data) => controller?.runJavaScript(
+    'window.postMessage(${jsonEncode(jsonEncode(data))}, location.origin);',
   );
+
+  void _send() => _post({
+    'type': 'state',
+    'dice': widget.dice,
+    'round': widget.round,
+    'art': widget.art,
+    'muted': widget.muted,
+    ...widget.state,
+  });
   @override
   void didUpdateWidget(covariant GameTable oldWidget) {
     super.didUpdateWidget(oldWidget);
     _send();
+    if (oldWidget.clip != widget.clip) _post({'type': 'clip'});
   }
 
   @override

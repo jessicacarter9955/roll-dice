@@ -1,6 +1,8 @@
 // Adapts the original table's controls; Flutter/server retain ownership of gameplay.
 export function attachBridge({ canvas, ui, hint, setDice, roll }) {
   let ready = false, state = null, renderedRound = null, animating = false, shownReveal = null, recording = false;
+  let highlight = null;
+  const shareHighlight = document.getElementById('shareHighlight');
   const face = document.getElementById('bidFace');
   const catchButton = document.getElementById('catchBtn');
   const modal = document.getElementById('modal');
@@ -91,23 +93,40 @@ export function attachBridge({ canvas, ui, hint, setDice, roll }) {
     if (recording) return;
     if (!canvas.captureStream || !window.MediaRecorder) { send({type:'clip',message:'This browser cannot record the table. Try desktop Chrome.'}); return; }
     recording = true;
+    shareHighlight.hidden = true;
+    highlight = null;
     send({type:'clip',message:'Recording 10 seconds of the table. Cameras and chat are excluded.'});
     const stream = canvas.captureStream(30), chunks = [];
-    const mimeType = ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/mp4'].find(t => MediaRecorder.isTypeSupported(t));
+    const mimeType = ['video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8'].find(t => MediaRecorder.isTypeSupported(t));
     try {
       const recorder = new MediaRecorder(stream, mimeType ? {mimeType} : {});
       recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
       recorder.onstop = () => {
         stream.getTracks().forEach(t => t.stop()); recording = false;
-        const url = URL.createObjectURL(new Blob(chunks, {type: recorder.mimeType})), a = document.createElement('a');
-        a.href = url; a.download = 'street-circle-table-' + Date.now() + (recorder.mimeType.includes('mp4') ? '.mp4' : '.webm');
+        const filename = 'street-circle-table-' + Date.now() + (recorder.mimeType.includes('mp4') ? '.mp4' : '.webm');
+        highlight = new File(chunks, filename, {type: recorder.mimeType});
+        const url = URL.createObjectURL(highlight), a = document.createElement('a');
+        a.href = url; a.download = filename;
         a.click(); setTimeout(() => URL.revokeObjectURL(url), 60000);
-        send({type:'clip',message:'Table clip exported. Direct TikTok / Instagram publishing is not connected.'});
+        shareHighlight.hidden = false;
+        send({type:'clip',message:'10-second clip downloaded. Tap Share highlight to choose an installed social app where supported.'});
       };
       recorder.onerror = () => { recording = false; stream.getTracks().forEach(t => t.stop()); send({type:'clip',message:'Recording failed in this browser.'}); };
       recorder.start(); setTimeout(() => { if (recorder.state === 'recording') recorder.stop(); }, 10000);
     } catch { recording = false; stream.getTracks().forEach(t => t.stop()); send({type:'clip',message:'Recording is not supported in this browser.'}); }
   }
+  shareHighlight.addEventListener('click', async () => {
+    if (!highlight) return;
+    if (!navigator.canShare?.({files: [highlight]})) {
+      send({type:'clip',message:'This browser cannot share the recorded video directly. Use the downloaded clip in your social app.'});
+      return;
+    }
+    try {
+      await navigator.share({files: [highlight],title:'Street Circle highlight'});
+    } catch (e) {
+      if (e.name !== 'AbortError') send({type:'clip',message:'Sharing failed. Your downloaded video is still available.'});
+    }
+  });
   window.addEventListener('message', e => {
     if (e.origin !== location.origin || (e.source !== parent && e.source !== window)) return;
     try {
