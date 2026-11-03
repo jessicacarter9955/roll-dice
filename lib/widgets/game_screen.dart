@@ -49,166 +49,12 @@ class _GameScreenState extends State<GameScreen> {
               ? 'Your turn · make the first bid.'
               : 'Your turn · raise the bid or call Catch!'
         : '${active?['name'] ?? 'Player'} is making a call…';
-    return Column(
+    // The original ZIP table owns the entire phone viewport. All social and
+    // room controls are accessible as overlays, never as rows that shrink it.
+    return Stack(
+      fit: StackFit.expand,
       children: [
-        SizedBox(
-          height: 44,
-          child: Row(
-            children: [
-              IconButton(
-                tooltip: 'Leave table',
-                onPressed: leave,
-                icon: const Icon(Icons.arrow_back, size: 18),
-              ),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      room['name'] as String,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      app.practice != null
-                          ? 'PRACTICE · NO WALLET CHANGES'
-                          : '${app.watching ? 'WATCHING' : 'FREE COINS'} · ${app.socketReady ? 'CONNECTED' : 'RECONNECTING…'}',
-                      style: const TextStyle(
-                        color: muted,
-                        fontSize: 7,
-                        letterSpacing: .8,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: 'Game rules',
-                onPressed: () => showSheet(context, const RulesContent()),
-                icon: const Icon(Icons.info_outline, size: 17, color: muted),
-              ),
-              PopupMenuButton<String>(
-                iconSize: 18,
-                onSelected: (v) {
-                  if (v == 'clip') {
-                    if (kIsWeb) {
-                      setState(() => clip++);
-                    } else {
-                      message(
-                        'Table clip export is currently available in the web build.',
-                      );
-                    }
-                  }
-                  if (v == 'invite') {
-                    Clipboard.setData(
-                      ClipboardData(text: room['inviteCode'] as String),
-                    );
-                    message('Table invite code copied.');
-                  }
-                  if (v == 'dice') {
-                    message(
-                      'This build uses server-generated dice. GoDice hardware integration and device verification are pending.',
-                    );
-                  }
-                },
-                itemBuilder: (_) => [
-                  const PopupMenuItem(
-                    value: 'clip',
-                    child: Text('Export 10s table clip'),
-                  ),
-                  if (app.practice == null)
-                    const PopupMenuItem(
-                      value: 'invite',
-                      child: Text('Copy table invite'),
-                    ),
-                  const PopupMenuItem(
-                    value: 'dice',
-                    child: Text('Smart dice status'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        SizedBox(
-          height: 46,
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(8, 2, 8, 4),
-            scrollDirection: Axis.horizontal,
-            itemCount: app.players.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 5),
-            itemBuilder: (_, i) {
-              final p = app.players[i];
-              final turn = active?['id'] == p['id'];
-              final count = p['count'] as int? ?? 5;
-              final track = widget.video.trackFor(p['id'] as String);
-              return InkWell(
-                onTap: video,
-                child: Container(
-                  width: 88,
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  decoration: BoxDecoration(
-                    color: panel,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: turn ? gold : Colors.white.withValues(alpha: .07),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 25,
-                        height: 30,
-                        child: track != null
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: VideoTrackRenderer(track),
-                              )
-                            : Avatar(
-                                name: p['name'] as String,
-                                size: 24,
-                                color: count == 0 ? muted : playerColors[i % 6],
-                              ),
-                      ),
-                      const SizedBox(width: 5),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              p['name'] as String,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 8),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              '${p['bot'] == true
-                                  ? 'BOT'
-                                  : p['id'] == app.myId
-                                  ? 'YOU'
-                                  : 'PLAYER'} · $count dice',
-                              style: const TextStyle(color: muted, fontSize: 6),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        Expanded(
-          child: GameTable(
+        GameTable(
             key: const Key('portrait-table'),
             dice: app.myDice,
             round: game?['round'] as int? ?? 0,
@@ -237,37 +83,161 @@ class _GameScreenState extends State<GameScreen> {
               'practice': app.practice != null,
               'deadline': game?['deadline'],
             },
+        ),
+        Positioned(
+          left: 6,
+          top: 4,
+          child: _floatingControl(
+            IconButton(
+              tooltip: 'Leave ${room['name']}',
+              onPressed: leave,
+              icon: const Icon(Icons.arrow_back, size: 18),
+            ),
+          ),
+        ),
+        Positioned(
+          right: 6,
+          top: 4,
+          child: _floatingControl(
+            IconButton(
+              tooltip: '${app.players.length} players · see seats',
+              onPressed: () => modal(playersPanel()),
+              icon: Badge.count(
+                count: app.players.length,
+                child: const Icon(Icons.groups_outlined, size: 19),
+              ),
+            ),
           ),
         ),
         if (phase == 'waiting')
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: waiting(),
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: 72,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 340),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xee101814),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: waiting(),
+                ),
+              ),
+            ),
           ),
-        SizedBox(
-          height: 40,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              tool(
-                Icons.chat_bubble_outline,
-                'Chat ${(room['chat'] as List).length}',
-                () => modal(ChatPanel(app: app)),
-              ),
-              tool(Icons.history, 'History', history),
-              tool(Icons.sentiment_satisfied_alt, 'React', reactions),
-              tool(
-                widget.video.room == null
-                    ? Icons.videocam_off_outlined
-                    : Icons.videocam_outlined,
-                'Video',
-                video,
-              ),
-            ],
+        Positioned(
+          left: 6,
+          bottom: 6,
+          child: _floatingControl(
+            PopupMenuButton<String>(
+              tooltip: 'Room, chat and video controls',
+              icon: const Icon(Icons.more_horiz, size: 22),
+              onSelected: menu,
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'players', child: Text('Players / seats')),
+                PopupMenuItem(value: 'chat', child: Text('Chat · ${(room['chat'] as List).length}')),
+                const PopupMenuItem(value: 'history', child: Text('History')),
+                const PopupMenuItem(value: 'react', child: Text('Reactions')),
+                const PopupMenuItem(value: 'video', child: Text('Video / microphone')),
+                const PopupMenuItem(value: 'rules', child: Text('Game rules')),
+                const PopupMenuItem(value: 'clip', child: Text('Export 10s table clip')),
+                if (app.practice == null)
+                  const PopupMenuItem(value: 'invite', child: Text('Copy table invite')),
+                const PopupMenuItem(value: 'dice', child: Text('Smart dice status')),
+              ],
+            ),
           ),
         ),
       ],
     );
+  }
+
+  Widget _floatingControl(Widget child) => Material(
+    color: Colors.black.withValues(alpha: .47),
+    borderRadius: BorderRadius.circular(30),
+    child: SizedBox(width: 42, height: 42, child: child),
+  );
+
+  void menu(String value) {
+    switch (value) {
+      case 'players':
+        modal(playersPanel());
+        return;
+      case 'chat':
+        modal(ChatPanel(app: app));
+        return;
+      case 'history':
+        history();
+        return;
+      case 'react':
+        reactions();
+        return;
+      case 'video':
+        video();
+        return;
+      case 'rules':
+        showSheet(context, const RulesContent());
+        return;
+      case 'clip':
+        if (kIsWeb) {
+          setState(() => clip++);
+        } else {
+          message('Table clip export is currently available in the web build.');
+        }
+        return;
+      case 'invite':
+        Clipboard.setData(ClipboardData(text: app.room!['inviteCode'] as String));
+        message('Table invite code copied.');
+        return;
+      case 'dice':
+        message('Server-generated dice are active. GoDice hardware integration is pending.');
+        return;
+    }
+  }
+
+  Widget playersPanel() {
+    final turn = game?['phase'] == 'bidding' ? game?['turn'] as int? : null;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(22, 20, 22, 24),
+      children: [
+        Text(app.room!['name'] as String,
+            style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 6),
+        Text(app.practice != null ? 'PRACTICE · NO WALLET CHANGES'
+            : '${app.watching ? 'WATCHING' : 'FREE COINS'} · ${app.socketReady ? 'CONNECTED' : 'RECONNECTING…'}',
+            style: const TextStyle(color: muted, fontSize: 11)),
+        const SizedBox(height: 18),
+        for (var i = 0; i < app.players.length; i++)
+          ListTile(
+            onTap: video,
+            leading: SizedBox(
+              width: 42,
+              height: 42,
+              child: playerAvatar(i),
+            ),
+            title: Text(app.players[i]['name'] as String),
+            subtitle: Text('${app.players[i]['count'] ?? 5} dice · ${app.players[i]['bot'] == true ? 'BOT' : 'PLAYER'}'),
+            trailing: i == turn ? const Icon(Icons.casino, color: gold) : null,
+          ),
+      ],
+    );
+  }
+
+  Widget playerAvatar(int i) {
+    final player = app.players[i];
+    final track = widget.video.trackFor(player['id'] as String);
+    return track != null
+        ? VideoTrackRenderer(track)
+        : Avatar(
+            name: player['name'] as String,
+            size: 36,
+            color: (player['count'] as int? ?? 5) == 0
+                ? muted
+                : playerColors[i % 6],
+          );
   }
 
   Widget waiting() => Column(
@@ -317,20 +287,6 @@ class _GameScreenState extends State<GameScreen> {
         ),
       ],
     ],
-  );
-  Widget tool(IconData icon, String label, VoidCallback action) => InkWell(
-    onTap: action,
-    borderRadius: BorderRadius.circular(10),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: muted),
-          const SizedBox(width: 5),
-          Text(label, style: const TextStyle(color: muted, fontSize: 9)),
-        ],
-      ),
-    ),
   );
   Future<void> leave() async {
     final yes = await showDialog<bool>(
