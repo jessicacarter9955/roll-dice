@@ -11,7 +11,7 @@ These are test suggestions, not a claim that every scenario has been manually pa
 5. Catch a bid. In the result window, count matching faces across all revealed hands. Ones must be literal. The correct player loses a die. **View table** dismisses the result window; **View results** reopens it.
 6. Press **Next round**, verify reroll and losing-player start. Play through elimination to a winner, then **Play again**.
 7. Send chat and reactions; practice chat stays local. Open History to inspect bids/catches. Bots do not pretend to chat or have cameras.
-8. Export a 10-second table clip from the menu. Expect a browser video download, not automatic social publishing. MediaRecorder support varies.
+8. Record a 10-second table clip from the menu. Expect a browser video download and then a **Share 10s highlight** button; tap it to open the OS share chooser where Web Share supports video files. On unsupported devices, import the downloaded video manually into TikTok/Instagram. Test MP4 versus WebM; no direct integration with either social account is claimed.
 9. Leave; practice must not change the wallet.
 
 ## Connected rooms
@@ -26,12 +26,14 @@ Run the Node service and use separate browser profiles A/B/C. A and B are player
 6. Finish and request rematch from all humans. Host starts only after consent; new entries are deducted once.
 7. Fill eight seats; reject a ninth. Check watcher-disabled tables and host departure.
 8. Create/join a crew, copy its code, refresh membership. Test duplicate usernames and invalid codes.
-9. Make B private, then block B from A. Check search/entry restrictions and Unblock in You. Existing-call video revocation remains unfinished.
+9. Make B private, then block B from A. Check search/entry restrictions and Unblock in You. With LiveKit configured, both participants should be ejected from shared video rooms and stale join tokens refused.
 10. Set a 5-minute daily cap, play to it and refresh/restart. Usage must persist; a new match must be denied. Server day resets at midnight UTC.
+11. From Players / seats, report a human participant with a reason. Test invalid reasons/self-report and the daily cap of ten reports. Moderators still need separate authorized review tooling.
 
 ## Outstanding provider and device checks
 
 - Twilio: actual delivery, consent, valid/invalid/expired codes, resend throttles and provider failures. No default OTP exists.
 - LiveKit: 8 publishers plus watchers, permissions, mute/unmute, packet loss, handoff/reconnect, expiry, leave/block revocation and no watcher publication.
-- GoDice: not implemented. Do not mark BLE tests passed.
-- Native: physical iPhone/Android builds, permissions/lifecycle, secure storage, hosted WebView and sharing are not yet verified.
+- GoDice experimental: on real Android and iPhone, menu → Smart dice status → Scan → Pair up to five devices. Wake by shaking, roll, verify only stable D6 values 1–6 and battery, disconnect/reconnect and denied permissions. In a fresh offline practice round, roll one die per remaining local die and select **Use these rolls in offline practice** before the first bid. Confirm the hand is replaced. Online coin results stay server-authoritative. Obtain Particula commercial approval.
+- Native: install the Android debug APK from Actions; test BLE/video permissions, session security across restarts, and the hosted original ZIP table in the WebView. Repeat iOS physical tests once signed. Native social sharing/capture is still pending.
+- Hosted API: after credentials and paid disk approval, apply `render.yaml`, check `/api/health`, then restart/redeploy with active accounts, coins and rooms and verify they persist. Test backup/restore separately.

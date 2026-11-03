@@ -23,6 +23,15 @@ void main() {
     expect(match.game['resolution']['dice'][0]['dice'], hasLength(5));
     expect(match.players.first['count'], 4);
   });
+  test('physical GoDice rolls can replace only an unopened local practice hand', () {
+    final match = PracticeMatch(opponents: 1, random: Random(4));
+    expect(() => match.setPhysicalDice([1, 2]), throwsStateError);
+    expect(() => match.setPhysicalDice([1, 2, 3, 4, 7]), throwsStateError);
+    match.setPhysicalDice([1, 2, 3, 4, 5]);
+    expect(match.players.first['dice'], [1, 2, 3, 4, 5]);
+    match.act('local', {'type': 'bid', 'quantity': 1, 'face': 1});
+    expect(() => match.setPhysicalDice([6, 6, 6, 6, 6]), throwsStateError);
+  });
   test('no wild ones: a truthful bid makes the catcher lose a die', () {
     final match = PracticeMatch(opponents: 1, random: Random(1));
     match.players[0]['dice'] = [1, 1, 1, 1, 1];

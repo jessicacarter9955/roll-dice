@@ -47,6 +47,21 @@ class PracticeMatch {
     }
   }
 
+  /// Locally observed physical GoDice hand. Practice is not a wagered or
+  /// authoritative match; reject replacement after bidding begins.
+  void setPhysicalDice(List<int> values) {
+    final hand = players.first;
+    if (game['phase'] != 'bidding' || game['bid'] != null) {
+      throw StateError('Physical dice can only be used before the first bid.');
+    }
+    if (values.length != hand['count'] ||
+        values.any((value) => value < 1 || value > 6)) {
+      throw StateError('Roll one D6 per remaining die (1–6).');
+    }
+    hand['dice'] = List<int>.from(values);
+    game['revision'] = (game['revision'] as int) + 1;
+  }
+
   int _next(int from) {
     for (var n = 1; n <= players.length; n++) {
       final i = (from + n) % players.length;

@@ -6,6 +6,8 @@
 	<string>Show your video to players at your Street Circle table when you enable your camera.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Talk to players at your Street Circle table when you enable your microphone.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Connect your optional GoDice smart dice to show their physical rolls during a game.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
