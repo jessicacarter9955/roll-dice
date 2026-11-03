@@ -4,8 +4,8 @@ Working code and verified provider integrations are different. This first browse
 
 | Area | Implemented | Still required |
 |---|---|---|
-| Flutter web | Portrait phone preview; responsive mobile client | Real-phone browser/device matrix |
-| ZIP rendering | Actual Three.js/Cannon board, wood, artwork, dice, sound, original settings/dock/result presentation; portrait camera | Low-end GPU/performance tests; commercial asset rights |
+| Flutter web | Portrait phone preview; 3D table fills the available game viewport; room/players/chat/video are floating controls or sheets, without permanent header or player strip | Real-phone browser/device matrix and visual acceptance against the supplied screenshot |
+| ZIP rendering | Actual Three.js/Cannon board, wood, pirate artwork, dice, sound, original settings/dock/result presentation; portrait camera; byte hashes guarded for all artwork and sound | Re-open the original ZIP on the Windows workstation for independent byte comparison, low-end GPU/performance tests, commercial asset rights |
 | Game | Liar’s Dice v1; 2–8 seats; bid/catch/reveal/elimination; offline bots | Acceptance of selected house rules |
 | Online authority | Authenticated REST, WebSocket snapshots, hidden dice, turn validation, deadlines/grace period, SQLite room persistence | Hosted deployment, load/soak/restart testing |
 | Coins | 1,000 starting free coins; fixed entry; transactional deduction and one-time payout | Account farming prevention, support/abuse tooling |
@@ -25,3 +25,10 @@ The detailed prototype and 3-phase spec were not supplied. No claim is made that
 Production blockers also include account deletion/export, moderation/reporting/support, security review, session/token revocation, observability, fraud controls, backed-up persistent storage and restore drills. The SQLite implementation supports one authoritative server instance. Horizontal scaling needs shared storage/room ownership, not independent replicas.
 
 Review accounts and bots are disabled by `NODE_ENV=production`. Do not expose a review server as a production service.
+
+## Portrait table acceptance
+
+- While playing, the `GameTable` iframe is the full game viewport, behind only the small back/seat/menu controls. Do not bring back a permanent Flutter player rail, chat toolbar or duplicate table artwork.
+- The original archive's image selector, sound toggle, shake setting, dice meshes, wood/marble/gold table and game dock are all in `web/table/`; they must remain the visible game. All existing room/video/chat functions are reached from the floating controls.
+- The archive files in `web/table/src/images/` and `web/table/src/sfx/` are **not** to be resized, recompressed or replaced. `server/test/assets.test.mjs` guards their current checksums.
+- A real WebGL-enabled mobile browser is still required for visual sign-off. A browser without WebGL can show the loader, but cannot validate the Three.js view.
