@@ -27,6 +27,8 @@ services:
         value: https://jessicacarter9955.github.io
       - key: DATA_DIR
         value: /opt/render/project/src/server/data
+      - key: ADMIN_TOKEN
+        generateValue: true
       - key: TWILIO_ACCOUNT_SID
         sync: false
       - key: TWILIO_AUTH_TOKEN

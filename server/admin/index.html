@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Street Circle · Moderator review</title>
+  <link rel="stylesheet" href="moderation.css" />
+</head>
+<body>
+  <main>
+    <header><h1>Street Circle · Reports</h1><p>Authorized moderator review. Enter the ADMIN_TOKEN from the server's secure configuration; it is kept only in this tab's memory.</p></header>
+    <form id="access" autocomplete="off">
+      <label for="key">Moderator key</label>
+      <input id="key" type="password" minlength="32" required autocomplete="off" />
+      <button type="submit">Load reports</button>
+    </form>
+    <section id="dashboard" hidden>
+      <div class="toolbar">
+        <label for="status">Status</label>
+        <select id="status"><option value="open">Open</option><option value="reviewed">Reviewed</option><option value="all">All</option></select>
+        <button id="refresh" type="button">Refresh</button>
+        <button id="lock" type="button">Lock</button>
+        <strong id="count"></strong>
+      </div>
+      <div id="reports" aria-live="polite"></div>
+    </section>
+    <p id="notice" role="status"></p>
+  </main>
+  <script src="moderation.js" defer></script>
+</body>
+</html>

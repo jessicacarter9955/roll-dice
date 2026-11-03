@@ -84,10 +84,17 @@ export function attachBridge({ canvas, ui, hint, setDice, roll }) {
     updateButtons();
     const other = ended ? data.resolution?.dice?.find(p => p.id === data.resolution.bid.playerId)?.dice || [] : [];
     if (renderedRound !== data.round && data.dice?.length && !animating) {
-      renderedRound = data.round; animating = true; setDice([], []);
+      renderedRound = data.round; animating = true; canvas.dataset.diceReady = 'false'; setDice([], []);
       try { await roll(Math.min(5, data.dice.length)); }
-      finally { animating = false; setDice(state.dice || [], ['reveal','finished'].includes(state.phase) ? state.resolution?.dice?.find(p => p.id === state.resolution.bid.playerId)?.dice || [] : []); }
-    } else if (!animating) setDice(data.dice || [], other);
+      finally {
+        animating = false;
+        setDice(state.dice || [], ['reveal','finished'].includes(state.phase) ? state.resolution?.dice?.find(p => p.id === state.resolution.bid.playerId)?.dice || [] : []);
+        canvas.dataset.diceReady = 'true';
+      }
+    } else if (!animating) {
+      setDice(data.dice || [], other);
+      canvas.dataset.diceReady = 'true';
+    }
   }
   async function capture() {
     if (recording) return;
@@ -97,7 +104,15 @@ export function attachBridge({ canvas, ui, hint, setDice, roll }) {
     highlight = null;
     send({type:'clip',message:'Recording 10 seconds of the table. Cameras and chat are excluded.'});
     const stream = canvas.captureStream(30), chunks = [];
-    const mimeType = ['video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8'].find(t => MediaRecorder.isTypeSupported(t));
+    // Some Chromium builds claim `video/mp4` support but encode VP9 inside an
+    // MP4 container, which many social apps reject. Only choose MP4 with an
+    // explicit H.264 codec; otherwise provide a truthful WebM download.
+    const mimeType = [
+      'video/mp4;codecs=avc1.42E01E',
+      'video/webm;codecs=vp8',
+      'video/webm;codecs=vp9',
+      'video/webm',
+    ].find(t => MediaRecorder.isTypeSupported(t));
     try {
       const recorder = new MediaRecorder(stream, mimeType ? {mimeType} : {});
       recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
@@ -132,7 +147,9 @@ export function attachBridge({ canvas, ui, hint, setDice, roll }) {
     try {
       const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
       if (data?.type === 'state') apply(data);
-      if (data?.type === 'clip') capture();
+      // Status notifications also have type "clip". On a standalone table,
+      // parent === window, so never treat those replies as fresh commands.
+      if (data?.type === 'clip' && !Object.hasOwn(data, 'message')) capture();
     } catch { send({type:'clip',message:'Table command failed.'}); }
   });
   return { ready() {

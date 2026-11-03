@@ -10,6 +10,8 @@ Open the [web preview](https://jessicacarter9955.github.io/roll-dice/) and choos
 
 GitHub Actions installs pinned Flutter automatically, runs checks/tests and builds the client. No local Flutter installation is needed to build through GitHub. The `street-circle-web` artifact is downloadable from each successful build. GitHub Pages serves the client and practice; **it does not run the Node game service, SMS or video**.
 
+An experimental Playwright job also runs a 393px Flutter practice flow and 320/393/430px original-table checks in software-WebGL Chromium, with screenshot and ten-second clip artifacts. This CI job is deliberately non-blocking; a passing hardware-GPU test still requires a real phone. Browsers without WebGL now show a clear error over the preserved ZIP artwork, instead of an endless loader.
+
 ## Run a connected review locally
 
 ```sh
@@ -31,6 +33,8 @@ Copy `.env.example` to `.env` at repository root. Never commit credentials.
 - Twilio Verify: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`. The adapter verifies real provider codes; no default/fake OTP exists.
 - LiveKit: `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`. Seated users receive publishing grants, watchers subscription-only grants. Camera/mic start off.
 - Runtime: Node 22.13+ (CI pins 22.23.1), one server instance, durable SQLite in `DATA_DIR`. Multiple independent replicas are not supported. The `render.yaml` Blueprint deploys an API with persistent disk after paid-plan approval and secret setup.
+- Moderation: set a randomly generated `ADMIN_TOKEN` of at least 32 characters in the server environment (the Blueprint generates one). The private-key-protected report review portal is at `/admin/`; the token is not stored in the browser. The portal currently marks reports reviewed/reopened, not automated user suspension.
+- Consistent SQLite backup: while the API is running, execute `cd server && npm run backup -- create /path/to/street-circle.sqlite /different/path/snapshot.sqlite`, and verify with `npm run backup -- verify /different/path/snapshot.sqlite`. The script refuses to overwrite existing backups. Upload the backup to separately managed, access-controlled off-site storage; an attached Render disk or local snapshot alone is **not** an off-site backup. Automated off-site retention and a real restore operation require a configured storage account.
 - Hosted API: set HTTPS `PUBLIC_ORIGIN` to the client’s origin (e.g. `https://jessicacarter9955.github.io`, without a path), set `NODE_ENV=production` and `ALLOW_GUESTS=false`, use TLS and persistent storage. Remaining production blockers still apply.
 
 To connect the Pages client, set repository Actions variable `API_URL` before building, or use **You → Game service connection**. That service needs its own deployment; it is not supplied by Pages.

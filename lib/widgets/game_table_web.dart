@@ -42,6 +42,9 @@ class _GameTableState extends State<GameTable> {
         if (data['type'] == 'clip') {
           widget.onEvent?.call(data['message'] as String);
         }
+        if (data['type'] == 'graphics-error') {
+          widget.onEvent?.call(data['message'] as String);
+        }
         if (data['type'] == 'action') {
           widget.onAction?.call(
             Map<String, dynamic>.from(data['action'] as Map),

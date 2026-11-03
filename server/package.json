@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node --env-file-if-exists=../.env index.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check index.mjs && node --check engine.mjs"
+    "check": "node --check index.mjs && node --check engine.mjs && node --check tools/backup.mjs && node --check admin/moderation.js",
+    "backup": "node tools/backup.mjs"
   },
   "dependencies": {
     "express": "^5.1.0",
