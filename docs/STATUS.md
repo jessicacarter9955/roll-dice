@@ -20,7 +20,7 @@ Working code and verified provider integrations are different. This first browse
 | Native | Android/iOS shells, camera/mic/BLE permissions, hosted table WebView, secure session storage | Native CI/device verification, signing, sharing and stores |
 | API hosting | Render Blueprint for one authoritative Node instance with persistent SQLite disk | Approval of paid compute/disk, credentials, deployment/restart/restore tests |
 | Media hosting | Local LiveKit dev Compose and production VM guidance | Public UDP/TURN/TLS media node or LiveKit Cloud |
-| CI | Pinned SDK, Flutter/Node tests, web artifact/Pages; new Android and unsigned iOS compile jobs | Verify current Actions outcomes and commit new resolved lockfile |
+| CI | Pinned SDK and committed dependency lock, Flutter/Node tests, web artifact/Pages; new Android and unsigned iOS compile jobs | Verify current Actions outcomes |
 
 The detailed prototype and 3-phase spec were not supplied. No claim is made that selected rules match that unseen material. Later-phase leaderboards, events, geofencing, sweepstakes and money modes are not implemented or enabled.
 

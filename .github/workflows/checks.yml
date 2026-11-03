@@ -24,14 +24,7 @@ jobs:
           git clone --depth 1 --branch 3.47.9 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
           echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
       - run: flutter config --no-analytics
-      # Resolve newly added native BLE/secure-storage plugins; the resulting
-      # lockfile is uploaded so it can be committed and pinning re-enabled.
-      - run: flutter pub get
-      - uses: actions/upload-artifact@v4
-        with:
-          name: resolved-pubspec-lock
-          path: pubspec.lock
-          retention-days: 14
+      - run: flutter pub get --enforce-lockfile
       - run: flutter analyze
       - run: flutter test
       - name: Build web preview
@@ -51,7 +44,7 @@ jobs:
           git clone --depth 1 --branch 3.47.9 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
           echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
       - run: flutter config --no-analytics
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - run: flutter build apk --debug
       - uses: actions/upload-artifact@v4
         with:
@@ -68,7 +61,7 @@ jobs:
           git clone --depth 1 --branch 3.47.9 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
           echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
       - run: flutter config --no-analytics
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - run: flutter build ios --debug --no-codesign
   pages:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
