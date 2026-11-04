@@ -11,4 +11,6 @@ button:hover { background: #d2b476; }
 .report { margin-top: 12px; background: #202a23; border: 1px solid #4f5f52; padding: 15px; border-radius: 10px; overflow-wrap: anywhere; }
 .report p { white-space: pre-wrap; }
 .report small { color: #b9c4ba; }
+.report button { margin: 4px 8px 4px 0; }
+.history { border-top: 1px solid #4f5f52; margin-top: 14px; padding-top: 8px; }
 #notice { min-height: 1.3rem; color: #f9cf86; }

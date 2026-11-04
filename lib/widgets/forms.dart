@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/app_model.dart';
@@ -537,6 +538,63 @@ class CrewsPage extends StatefulWidget {
 }
 
 class _CrewsPageState extends State<CrewsPage> {
+  Future<void> _crewAction(
+    Map<String, dynamic> crew,
+    String action,
+    String prompt, {
+    String? memberId,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirm crew change'),
+        content: Text(prompt),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Confirm')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await widget.app.run(() async {
+      await widget.app.request(
+        '/crews/${crew['id']}${action == 'delete' ? '' : '/$action'}',
+        method: action == 'delete' ? 'DELETE' : 'POST',
+        body: memberId == null ? null : {'userId': memberId},
+      );
+      if (mounted) setState(() {});
+    });
+  }
+
+  Future<void> _chooseMember(Map<String, dynamic> crew, String action) async {
+    final members = (crew['members'] as List)
+        .cast<Map<String, dynamic>>()
+        .where((m) => m['id'] != widget.app.myId)
+        .toList();
+    if (members.isEmpty) return;
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: Text(action == 'transfer' ? 'Transfer ownership to' : 'Remove member'),
+        children: [
+          for (final member in members)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialogContext, member['id'] as String),
+              child: Text(member['name'] as String),
+            ),
+        ],
+      ),
+    );
+    if (picked == null || !mounted) return;
+    final name = members.firstWhere((m) => m['id'] == picked)['name'];
+    await _crewAction(
+      crew,
+      action == 'transfer' ? 'transfer' : 'remove-member',
+      action == 'transfer' ? 'Give ownership of ${crew['name']} to $name?' : 'Remove $name from ${crew['name']}?',
+      memberId: picked,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = widget.app;
@@ -603,7 +661,40 @@ class _CrewsPageState extends State<CrewsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(c['name'] as String, style: const TextStyle(fontSize: 17)),
+            Row(
+              children: [
+                Expanded(child: Text(c['name'] as String, style: const TextStyle(fontSize: 17))),
+                if (c['ownerId'] == app.myId)
+                  const Text('OWNER', style: TextStyle(fontSize: 10, color: gold)),
+                PopupMenuButton<String>(
+                  tooltip: 'Manage crew',
+                  onSelected: (action) async {
+                    switch (action) {
+                      case 'leave':
+                        await _crewAction(c, 'leave', 'Leave ${c['name']}? If you are the owner, ownership passes to another member.');
+                      case 'rotate-code':
+                        await _crewAction(c, 'rotate-code', 'Replace the invite code? Existing invitations will stop working.');
+                      case 'transfer':
+                      case 'remove-member':
+                        await _chooseMember(c, action);
+                      case 'delete':
+                        await _crewAction(c, 'delete', 'Delete ${c['name']} for every member? This cannot be undone.');
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(value: 'leave', child: Text('Leave crew')),
+                    if (c['ownerId'] == app.myId) ...[
+                      const PopupMenuItem(value: 'rotate-code', child: Text('Replace invite code')),
+                      if ((c['members'] as List).length > 1) ...[
+                        const PopupMenuItem(value: 'transfer', child: Text('Transfer ownership')),
+                        const PopupMenuItem(value: 'remove-member', child: Text('Remove member')),
+                      ],
+                      const PopupMenuItem(value: 'delete', child: Text('Delete crew')),
+                    ],
+                  ],
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             Text(
               '${(c['members'] as List).length} members',
@@ -933,6 +1024,30 @@ class _ProfilePageState extends State<ProfilePage> {
           icon: const Icon(Icons.menu_book_outlined, size: 18),
           label: const Text('Rules & fair play'),
         ),
+        if (app.user != null)
+          TextButton.icon(
+            onPressed: app.busy ? null : () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  title: const Text('Export your data'),
+                  content: const Text('Your profile, phone number, crew memberships and own activity will be copied as JSON. The clipboard may be visible to other apps until you replace it.'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+                    FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Copy export')),
+                  ],
+                ),
+              );
+              if (confirmed != true || !mounted) return;
+              await app.run(() async {
+                final data = await app.request('/me/export');
+                await Clipboard.setData(ClipboardData(text: const JsonEncoder.withIndent('  ').convert(data)));
+                if (mounted) toast(context, 'Account data copied. Paste it into a private file.');
+              });
+            },
+            icon: const Icon(Icons.file_download_outlined, size: 16),
+            label: const Text('Export my account data (JSON)'),
+          ),
         if (app.user != null)
           TextButton(
             onPressed: () => app.run(app.logout),

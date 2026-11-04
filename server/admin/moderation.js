@@ -38,7 +38,36 @@
             notice('Review status saved.'); await load();
           } catch (error) { notice(error.message); }
         });
-        card.append(button); $('reports').append(card);
+        const suspension = document.createElement('button');
+        const currentlySuspended = Boolean(item.targetSuspended);
+        suspension.textContent = currentlySuspended ? 'Restore account' : 'Suspend account';
+        suspension.addEventListener('click', async () => {
+          const reason = window.prompt('Document the moderation reason (8–300 characters):');
+          if (reason === null) return;
+          if (reason.trim().length < 8 || reason.length > 300) return notice('Give a reason of 8–300 characters.');
+          if (!window.confirm(`${currentlySuspended ? 'Restore' : 'Suspend'} this account? Existing sessions are revoked, and suspension removes the player from active rooms.`)) return;
+          try {
+            await api('/users/' + encodeURIComponent(item.targetId) + '/status', {
+              method: 'PATCH', body: JSON.stringify({suspended: !currentlySuspended, reason}),
+            });
+            notice(currentlySuspended ? 'Account restored.' : 'Account suspended; sessions revoked.');
+            await load();
+          } catch (error) { notice(error.message); }
+        });
+        const history = document.createElement('button');
+        history.textContent = 'Moderation history';
+        history.addEventListener('click', async () => {
+          try {
+            const result = await api('/users/' + encodeURIComponent(item.targetId));
+            const panel = document.createElement('div'); panel.className = 'history';
+            if (!result.actions.length) field(panel, 'History', 'No previous moderation decisions.');
+            for (const action of result.actions) {
+              field(panel, action.action + ' · ' + new Date(action.createdAt).toLocaleString(), action.reason);
+            }
+            history.replaceWith(panel);
+          } catch (error) { notice(error.message); }
+        });
+        card.append(button, suspension, history); $('reports').append(card);
       }
       notice(data.count ? '' : 'No reports match this filter.');
     } catch (error) { notice(error.message); }
