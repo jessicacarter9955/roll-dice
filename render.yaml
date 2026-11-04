@@ -35,6 +35,8 @@ services:
         sync: false
       - key: TWILIO_VERIFY_SERVICE_SID
         sync: false
+      - key: SMS_THROTTLE_SECRET
+        generateValue: true
       - key: LIVEKIT_URL
         sync: false
       - key: LIVEKIT_API_KEY

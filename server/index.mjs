@@ -4,7 +4,7 @@ import { rateLimit } from 'express-rate-limit';
 import { WebSocketServer, WebSocket } from 'ws';
 import { AccessToken, RoomServiceClient } from 'livekit-server-sdk';
 import { DatabaseSync } from 'node:sqlite';
-import { randomBytes, randomUUID, randomInt, createHash, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomUUID, randomInt, createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { mkdirSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS sessions (hash TEXT PRIMARY KEY, user_id TEXT NOT NUL
 CREATE TABLE IF NOT EXISTS rooms (id TEXT PRIMARY KEY, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS crews (id TEXT PRIMARY KEY, code TEXT UNIQUE, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS moderation_actions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, action TEXT NOT NULL, reason TEXT NOT NULL, created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS sms_throttle (phone_key TEXT PRIMARY KEY, last_sent INTEGER NOT NULL, window_started INTEGER NOT NULL, send_count INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS reports (id TEXT PRIMARY KEY, reporter_id TEXT NOT NULL, target_id TEXT NOT NULL, room_id TEXT, reason TEXT NOT NULL, details TEXT NOT NULL, created_at INTEGER NOT NULL);`);
 // Existing databases created before moderation shipped need a non-destructive migration.
 const reportColumns = new Set(db.prepare('PRAGMA table_info(reports)').all().map(c => c.name));
@@ -242,20 +243,43 @@ app.post('/api/auth/guest', authLimit, (req, res) => {
   res.json(session(newUser(req.body.name)));
 });
 async function twilio(path, body) {
-  const response = await fetch(`https://verify.twilio.com/v2/Services/${process.env.TWILIO_VERIFY_SERVICE_SID}/${path}`, {
+  const devUrl = !production && process.env.DEV_TWILIO_VERIFY_URL;
+  if (devUrl && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(devUrl))
+    throw new Error('A local-only Twilio test endpoint is required.');
+  const providerUrl = devUrl || `https://verify.twilio.com/v2/Services/${process.env.TWILIO_VERIFY_SERVICE_SID}`;
+  const response = await fetch(`${providerUrl}/${path}`, {
     method: 'POST', headers: { Authorization: `Basic ${Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64')}`, 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams(body), signal: AbortSignal.timeout(15000),
   });
   if (!response.ok) fail('SMS provider could not complete this request. Please try again later.', 502);
   return response.json();
 }
-const smsCooldown = new Map();
+// HMAC protects low-entropy phone numbers even if the throttle table is copied.
+// The stable secret is provisioned independently on Render; a Twilio token is
+// only a compatibility fallback for existing installations.
+const throttleSecret = process.env.SMS_THROTTLE_SECRET || process.env.TWILIO_AUTH_TOKEN || randomBytes(32).toString('hex');
+function reserveSms(phone) {
+  const key = createHmac('sha256', throttleSecret).update(phone).digest('hex');
+  const now = Date.now();
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const existing = db.prepare('SELECT * FROM sms_throttle WHERE phone_key=?').get(key);
+    if (existing && now - existing.last_sent < 60000)
+      fail('Wait one minute before requesting another code.', 429);
+    const activeWindow = existing && now - existing.window_started < 86400000;
+    const count = activeWindow ? existing.send_count : 0;
+    if (count >= 10) fail('Daily SMS verification limit reached. Please try again tomorrow.', 429);
+    db.prepare(`INSERT INTO sms_throttle (phone_key, last_sent, window_started, send_count)
+      VALUES (?,?,?,?) ON CONFLICT(phone_key) DO UPDATE SET
+      last_sent=excluded.last_sent, window_started=excluded.window_started,
+      send_count=excluded.send_count`).run(key, now, activeWindow ? existing.window_started : now, count + 1);
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+}
 app.post('/api/auth/sms', authLimit, async (req, res) => {
   if (!smsReady) fail('Phone sign-in needs a configured Twilio Verify service.', 503);
   if (!validPhone(req.body.phone) || req.body.consent !== true) fail('Enter an international phone number and accept SMS verification.');
-  const key = hash(req.body.phone);
-  if ((smsCooldown.get(key) || 0) > Date.now() - 60000) fail('Wait one minute before requesting another code.', 429);
-  smsCooldown.set(key, Date.now());
+  reserveSms(req.body.phone);
   await twilio('Verifications', { To: req.body.phone, Channel: 'sms' });
   res.json({ sent: true });
 });
@@ -616,6 +640,8 @@ const timer = setInterval(() => {
   ticks++;
   const now = Date.now();
   for (const [key, grant] of tickets) if (grant.expires < now) tickets.delete(key);
+  if (ticks % 3600 === 0)
+    db.prepare('DELETE FROM sms_throttle WHERE last_sent<?').run(now - 30 * 86400000);
   if (ticks % 30 === 0) for (const ws of wss.clients) { if (ws.isAlive === false) ws.terminate(); else { ws.isAlive = false; ws.ping(); } }
   for (const room of rooms.values()) {
     if (!room.game || room.game.phase === 'finished') continue;
