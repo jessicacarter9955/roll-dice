@@ -30,7 +30,7 @@ For hot reload use `flutter run -d chrome --dart-define=API_URL=http://localhost
 
 Copy `.env.example` to `.env` at repository root. Never commit credentials.
 
-- Twilio Verify: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`. The adapter verifies real provider codes; no default/fake OTP exists.
+- Twilio Verify: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`. The adapter verifies real provider codes; no default/fake OTP exists. Per-phone SMS requests have a durable one-per-minute and ten-per-rolling-day limit. `SMS_THROTTLE_SECRET` HMACs stored phone identifiers; Render generates it automatically. Only local development tests may override the provider endpoint with `DEV_TWILIO_VERIFY_URL=http://127.0.0.1:<port>`; production always uses Twilio's real endpoint.
 - LiveKit: `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`. Seated users receive publishing grants, watchers subscription-only grants. Camera/mic start off.
 - Runtime: Node 22.13+ (CI pins 22.23.1), one server instance, durable SQLite in `DATA_DIR`. Multiple independent replicas are not supported. The `render.yaml` Blueprint deploys an API with persistent disk after paid-plan approval and secret setup.
 - Moderation: set a randomly generated `ADMIN_TOKEN` of at least 32 characters in the server environment (the Blueprint generates one). The private-key-protected report portal at `/admin/` can review/reopen reports and manually suspend or restore accounts with an audit reason. Suspensions revoke sessions, room access and connected sockets; the token is not stored in the browser.

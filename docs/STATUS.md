@@ -6,7 +6,8 @@ Working code and verified provider integrations are different. This first browse
 
 - Crew lifecycle (join/leave, transfer ownership, remove members, rotate invite and delete) and moderator account suspension/restoration with audit were merged into `main`. Suspensions revoke live sessions, socket tickets and room participation.
 - Self-service personal data export and account deletion/anonymization have automated server tests. Historical snapshots/backups and real-life privacy/legal acceptance are still separate tasks; this does **not** certify end-to-end GDPR compliance.
-- API suite expanded to 14 tests, including irreversible deletion while a room is active, coin settlement, retained-game pseudonymization and post-restart verification. Live media and SMS are not exercised by these offline tests.
+- API suite expanded to 15 tests, including irreversible deletion while a room is active, coin settlement, retained-game pseudonymization and post-restart verification. Live media and real provider SMS deliveries are not exercised by these offline tests.
+- A separate development-only, local SMS provider stub exercises Twilio-compatible request/verify, incorrect and accepted codes, phone account recovery, per-phone request throttling that survives a restart, and the daily limit. It sends no SMS and does not certify real delivery.
 - The earlier crew/moderation PR passed Web/Flutter, Android debug, iOS unsigned and Playwright software-WebGL CI. New account-deletion UI must pass its own CI before merge.
 
 ## Autonomous verification update · 2026-11-03
@@ -31,7 +32,7 @@ This distinction matters: automatic token generation and browser recordings are 
 | Game | Liar’s Dice v1; 2–8 seats; bid/catch/reveal/elimination; offline bots | Acceptance of selected house rules |
 | Online authority | Authenticated REST, WebSocket snapshots, hidden dice, turn validation, deadlines/grace period, SQLite room persistence | Hosted deployment, load/soak/restart testing |
 | Coins | 1,000 starting free coins; fixed entry; transactional deduction and one-time payout | Account farming prevention, support/abuse tooling |
-| SMS | Twilio Verify adapter, consent/verification UI; no fake OTP | Company credentials and real delivery/failure tests; other SMS providers not yet integrated |
+| SMS | Twilio Verify adapter, consent/verification UI, durable HMAC phone throttling and local provider-stub tests; no production bypass or default OTP | Company credentials and real delivery/failure tests; other SMS providers not yet integrated |
 | Video/watchers | LiveKit Flutter adapter; player publishing/watcher subscription tokens; cameras/mics off by default; video removal and old token revocation on leave/block | Credentials; 8-person real video/network tests; provider revocation tests |
 | Profiles/search/privacy | Unique username, bio, search, private profiles, symmetric room-entry blocks | Rename propagation in existing tables; complete existing-call block behavior |
 | Chat/reactions/history | Durable bounded messages, spam limits, reactions, catch history and dice reveals; abuse reports with rate limits; `/admin/` account suspension/restoration | Appeals procedures, production retention policy and moderator operation |
