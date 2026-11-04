@@ -1042,7 +1042,7 @@ class _ProfilePageState extends State<ProfilePage> {
               await app.run(() async {
                 final data = await app.request('/me/export');
                 await Clipboard.setData(ClipboardData(text: const JsonEncoder.withIndent('  ').convert(data)));
-                if (mounted) toast(context, 'Account data copied. Paste it into a private file.');
+                if (mounted) toast(this.context, 'Account data copied. Paste it into a private file.');
               });
             },
             icon: const Icon(Icons.file_download_outlined, size: 16),
