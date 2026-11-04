@@ -39,7 +39,9 @@ class VideoSession extends ChangeNotifier {
 
   Future<void> toggleCamera() async {
     try {
-      await room?.localParticipant?.setCameraEnabled(!camera);
+      final participant = room?.localParticipant;
+      if (participant == null) throw StateError('Not connected to a video room.');
+      await participant.setCameraEnabled(!camera);
       camera = !camera;
       error = null;
     } catch (_) {
@@ -51,7 +53,9 @@ class VideoSession extends ChangeNotifier {
 
   Future<void> toggleMicrophone() async {
     try {
-      await room?.localParticipant?.setMicrophoneEnabled(!microphone);
+      final participant = room?.localParticipant;
+      if (participant == null) throw StateError('Not connected to a video room.');
+      await participant.setMicrophoneEnabled(!microphone);
       microphone = !microphone;
       error = null;
     } catch (_) {
