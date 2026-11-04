@@ -6,11 +6,29 @@ class VideoSession extends ChangeNotifier {
   Room? room;
   bool connecting = false, camera = false, microphone = false;
   String? error;
+  bool get connected => room?.connectionState == ConnectionState.connected;
+  bool get reconnecting => room?.connectionState == ConnectionState.reconnecting;
+
+  void _onRoomChanged() {
+    // A closed transport is not a successful camera/microphone session.
+    // During a temporary reconnect, LiveKit may restore published tracks, so
+    // retain the user's choices until the connection is definitively closed.
+    if (room?.connectionState == ConnectionState.disconnected) {
+      camera = false;
+      microphone = false;
+    }
+    notifyListeners();
+  }
+
   Future<void> connect(AppModel app) async {
+    if (connecting) return;
     connecting = true;
     error = null;
     notifyListeners();
     try {
+      // A previously disconnected room can still own event listeners and
+      // tracks. Dispose it before opening a new connection on rejoin.
+      if (room != null) await disconnect();
       if (app.practice != null) {
         throw Exception(
           'Practice opponents have no live camera. Join a connected table to use video.',
@@ -26,7 +44,7 @@ class VideoSession extends ChangeNotifier {
         roomOptions: const RoomOptions(adaptiveStream: true, dynacast: true),
       );
       room = next;
-      room!.addListener(notifyListeners);
+      next.addListener(_onRoomChanged);
       await next.connect(details['url'] as String, details['token'] as String);
     } catch (e) {
       error = e.toString().replaceFirst('Exception: ', '');
@@ -40,7 +58,9 @@ class VideoSession extends ChangeNotifier {
   Future<void> toggleCamera() async {
     try {
       final participant = room?.localParticipant;
-      if (participant == null) throw StateError('Not connected to a video room.');
+      if (!connected || participant == null) {
+        throw StateError('Not connected to a video room.');
+      }
       await participant.setCameraEnabled(!camera);
       camera = !camera;
       error = null;
@@ -54,7 +74,9 @@ class VideoSession extends ChangeNotifier {
   Future<void> toggleMicrophone() async {
     try {
       final participant = room?.localParticipant;
-      if (participant == null) throw StateError('Not connected to a video room.');
+      if (!connected || participant == null) {
+        throw StateError('Not connected to a video room.');
+      }
       await participant.setMicrophoneEnabled(!microphone);
       microphone = !microphone;
       error = null;
@@ -65,6 +87,7 @@ class VideoSession extends ChangeNotifier {
   }
 
   VideoTrack? trackFor(String id) {
+    if (!connected) return null;
     final Participant? participant = room?.localParticipant?.identity == id
         ? room?.localParticipant
         : room?.remoteParticipants.values
@@ -82,7 +105,7 @@ class VideoSession extends ChangeNotifier {
     room = null;
     camera = false;
     microphone = false;
-    previous?.removeListener(notifyListeners);
+    previous?.removeListener(_onRoomChanged);
     await previous?.disconnect();
     await previous?.dispose();
     notifyListeners();
@@ -90,7 +113,7 @@ class VideoSession extends ChangeNotifier {
 
   @override
   void dispose() {
-    room?.removeListener(notifyListeners);
+    room?.removeListener(_onRoomChanged);
     room?.dispose();
     super.dispose();
   }

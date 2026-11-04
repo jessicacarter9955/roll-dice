@@ -5,6 +5,8 @@ void main() {
   test('camera and microphone never claim success without a LiveKit room', () async {
     final session = VideoSession();
     addTearDown(session.dispose);
+    expect(session.connected, isFalse);
+    expect(session.reconnecting, isFalse);
 
     await session.toggleCamera();
     expect(session.camera, isFalse);
@@ -13,5 +15,6 @@ void main() {
     await session.toggleMicrophone();
     expect(session.microphone, isFalse);
     expect(session.error, contains('Microphone access was not available'));
+    expect(session.connected, isFalse);
   });
 }
