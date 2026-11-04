@@ -10,6 +10,7 @@ Working code and verified provider integrations are different. This first browse
 - A separate development-only, local SMS provider stub exercises Twilio-compatible request/verify, incorrect and accepted codes, phone account recovery, per-phone request throttling that survives a restart, and the daily limit. It sends no SMS and does not certify real delivery.
 - A separate 16-client live WebSocket test runs two eight-seat rooms concurrently. It verifies room isolation, immediate waiting-lobby offline presence, simultaneous match starts, independent coin settlement and no cross-room broadcasts. This is a local integration load sample, **not** a public Internet soak test.
 - Camera and microphone controls no longer report enabled when there is no LiveKit participant; a Flutter test guards the disconnected state. Actual published media remains unverified until a provider is configured.
+- Profile changes now synchronize the name, visibility and bio in saved table seats, current game participants and authored chat, broadcasting to connected spectators after a single database commit. A rejected duplicate rename leaves both the account and room snapshots unchanged.
 - The earlier crew/moderation PR passed Web/Flutter, Android debug, iOS unsigned and Playwright software-WebGL CI. New account-deletion UI must pass its own CI before merge.
 
 ## Autonomous verification update · 2026-11-03
@@ -36,7 +37,7 @@ This distinction matters: automatic token generation and browser recordings are 
 | Coins | 1,000 starting free coins; fixed entry; transactional deduction and one-time payout | Account farming prevention, support/abuse tooling |
 | SMS | Twilio Verify adapter, consent/verification UI, durable HMAC phone throttling and local provider-stub tests; no production bypass or default OTP | Company credentials and real delivery/failure tests; other SMS providers not yet integrated |
 | Video/watchers | LiveKit Flutter adapter; player publishing/watcher subscription tokens; cameras/mics off by default; video removal and old token revocation on leave/block | Credentials; 8-person real video/network tests; provider revocation tests |
-| Profiles/search/privacy | Unique username, bio, search, private profiles, symmetric room-entry blocks | Rename propagation in existing tables; complete existing-call block behavior |
+| Profiles/search/privacy | Unique username, bio, search, private profiles, symmetric room-entry blocks; transactional rename propagation to existing table/game/chat snapshots | Complete existing-call block behavior with real LiveKit credentials |
 | Chat/reactions/history | Durable bounded messages, spam limits, reactions, catch history and dice reveals; abuse reports with rate limits; `/admin/` account suspension/restoration | Appeals procedures, production retention policy and moderator operation |
 | Crews/invites/rematches | Create/join/list/leave/delete crew, transfer owner, remove members, rotate codes, invite-only tables, rematch consent | Further host departure UX and real multi-device acceptance |
 | Clips | Browser records/downloads 10 seconds of the table canvas and presents the OS Web Share chooser for the file where supported | Not a rolling replay buffer; social targets/MP4 support vary; native WebView capture and TikTok/Instagram acceptance require device tests |
