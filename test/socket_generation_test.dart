@@ -38,6 +38,9 @@ void main() {
     app.token = 'a-test-session';
 
     final oldAttempt = app.connect();
+    await Future<void>.delayed(Duration.zero);
+    expect(app.pendingTickets, hasLength(1));
+
     final newAttempt = app.connect();
     await Future<void>.delayed(Duration.zero);
     expect(app.pendingTickets, hasLength(2));
