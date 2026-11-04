@@ -16,4 +16,12 @@ The brief calls for 2–8 players, private dice, turns, free coins and a “catc
 
 The Node engine is authoritative online; the Dart engine is only for offline practice. Rule changes must update both and their tests.
 
+## In-app guidance / Guida in italiano
+
+The lobby has a visible **Regole / How to play** button; during a match the **Regole** help button stays visible beside the table. The help sheet defaults to Italian and supports **IT / EN** without leaving the match. It explains the dice, bids, challenges, round results and every visible table control.
+
+**Attenzione:** nel gioco *Bid* significa **dichiarare** una quantità e una faccia di dado, non scommettere monete. I dadi sono rilanciati automaticamente a ogni round; *Catch!* significa sfidare la dichiarazione precedente. *Balance* è il saldo di monete gratuite e *In Play* è il montepremi fisso della partita. Una partita pratica non modifica il saldo.
+
+The original table has two five-slot racks, **not** one rack per player. During bidding only the local player's numbered dice are rendered; the opposite rack is empty. After Catch the second rack shows the last bidder's hand, while the result sheet lists everyone's revealed dice. The compact top strip explicitly marks **TU** (your dice), shows each seated player's remaining public dice count, and highlights the current turn. Other players' face values stay hidden until Catch.
+
 General bluff/challenge reference: [Stanford’s Liar’s Dice assignment](https://web.stanford.edu/class/cs109l/unrestricted/assignments/assn1a/liarsdice.pdf). The exact timeout, no-wild and free-coin rules above are implementation choices.

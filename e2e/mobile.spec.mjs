@@ -30,10 +30,13 @@ test('Flutter portrait lobby enters practice with the original renderer behind c
   // CanvasKit's accessibility activation sometimes hangs Chromium headless
   // even though the Flutter game is rendered. Exercise the actual touch target
   // instead of depending on a semantics overlay or its clickability.
-  // Verified 393x852 screenshot: practice CTA at x=41..352, y=385..425.
+  // The visible Regole button now sits directly above the practice CTA.
+  // Portrait 393x852: practice CTA moves to about x=41..352, y=439..479.
+  await page.waitForTimeout(1200);
+  await page.screenshot({path: 'visual-artifacts/flutter-lobby-rules-393x852.png'});
   for (let attempt = 0; attempt < 3 && await page.locator('iframe').count() === 0; attempt++) {
     await page.waitForTimeout(1200); // Let Flutter finish rasterizing the CTA.
-    await page.mouse.click(196, 405);
+    await page.mouse.click(196, 459);
   }
   // The embedded real 3D table is the evidence of a successful transition;
   // no assertion below depends on Flutter's optional accessibility overlay.
