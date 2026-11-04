@@ -48,6 +48,9 @@ test('Flutter portrait lobby enters practice with the original renderer behind c
   // Do not capture the initial empty racks while the physical dice are still
   // tumbling: the original board should show the player's finished hand.
   await expect(table.locator('canvas#c')).toHaveAttribute('data-dice-ready', 'true', {timeout: 20000});
+  // The five values seen tumbling must equal the five values in the player's
+  // final rack; previously these were two unrelated random hands.
+  await expect(table.locator('canvas#c')).toHaveAttribute('data-roll-consistent', 'true');
   await page.waitForTimeout(300); // One compositing frame for the embedded WebGL canvas.
   await page.screenshot({path: 'visual-artifacts/flutter-practice-393x852.png'});
 });
