@@ -51,6 +51,10 @@ test('Flutter portrait lobby enters practice with the original renderer behind c
   // The five values seen tumbling must equal the five values in the player's
   // final rack; previously these were two unrelated random hands.
   await expect(table.locator('canvas#c')).toHaveAttribute('data-roll-consistent', 'true');
+  await expect(table.locator('#rollLog')).toBeVisible();
+  await expect(table.locator('#rollLogStatus')).toHaveText('Dadi fermi · mano privata');
+  await expect(table.locator('#rollLogFaces span')).toHaveCount(5);
+  await expect(table.locator('#rollLogCheck')).toContainText('coincidono');
   await page.waitForTimeout(300); // One compositing frame for the embedded WebGL canvas.
   await page.screenshot({path: 'visual-artifacts/flutter-practice-393x852.png'});
 });
