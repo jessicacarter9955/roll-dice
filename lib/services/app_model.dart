@@ -9,8 +9,9 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../domain/practice.dart';
 
 class AppModel extends ChangeNotifier {
-  AppModel({String? api})
-    : api = api ?? const String.fromEnvironment('API_URL') {
+  AppModel({String? api, WebSocketChannel Function(Uri)? channelFactory})
+    : api = api ?? const String.fromEnvironment('API_URL'),
+      _channelFactory = channelFactory ?? WebSocketChannel.connect {
     if (this.api.isEmpty) {
       final base = Uri.base;
       this.api = base.host.isEmpty
@@ -29,6 +30,8 @@ class AppModel extends ChangeNotifier {
   PracticeMatch? practice;
   Timer? _bots, _poll, _reconnect, _practiceClock;
   WebSocketChannel? _socket;
+  final WebSocketChannel Function(Uri) _channelFactory;
+  int _connectionGeneration = 0;
   int practiceSeconds = 0, _failures = 0;
   bool _disposed = false;
   final _client = http.Client();
@@ -190,9 +193,15 @@ class AppModel extends ChangeNotifier {
     final changed = api != value.trim().replaceAll(RegExp(r'/$'), '');
     api = value.trim().replaceAll(RegExp(r'/$'), '');
     if (changed) {
+      _connectionGeneration++;
+      _reconnect?.cancel();
       token = null;
       user = null;
       _socket?.sink.close();
+      _socket = null;
+      socketReady = false;
+      room = null;
+      rooms = [];
     }
     config = Map<String, dynamic>.from(await request('/config') as Map);
     server = true;
@@ -262,9 +271,12 @@ class AppModel extends ChangeNotifier {
   Future<void> logout() async {
     if (room != null) await leave();
     if (token != null && server) await request('/auth/logout', method: 'POST');
+    _connectionGeneration++;
     _reconnect?.cancel();
+    token = null; // Invalidate pending reconnects before closing the socket.
     await _socket?.sink.close();
-    token = null;
+    _socket = null;
+    socketReady = false;
     user = null;
     await _deleteSession();
     notifyListeners();
@@ -277,6 +289,7 @@ class AppModel extends ChangeNotifier {
       body: {'confirmation': 'DELETE MY ACCOUNT'},
     );
     token = null; // Clear auth before closing the socket to suppress reconnect.
+    _connectionGeneration++;
     _reconnect?.cancel();
     await _socket?.sink.close();
     _socket = null;
@@ -297,19 +310,36 @@ class AppModel extends ChangeNotifier {
 
   Future<void> connect() async {
     if (token == null || _disposed) return;
+    final generation = ++_connectionGeneration;
     _reconnect?.cancel();
+    final previous = _socket;
+    _socket = null;
+    socketReady = false;
     try {
+      await previous?.sink.close();
+      if (_disposed || generation != _connectionGeneration || token == null) {
+        return;
+      }
+      notifyListeners();
       final ticket = await request('/socket-ticket', method: 'POST');
-      await _socket?.sink.close();
+      if (_disposed || generation != _connectionGeneration || token == null) {
+        return; // A newer connection or sign-out superseded this ticket.
+      }
       final uri = Uri.parse(
         api,
       ).replace(scheme: api.startsWith('https') ? 'wss' : 'ws', path: '/ws');
-      final channel = WebSocketChannel.connect(uri);
+      final channel = _channelFactory(uri);
       _socket = channel;
       await channel.ready;
+      if (_disposed || generation != _connectionGeneration || token == null) {
+        await channel.sink.close();
+        return;
+      }
       channel.sink.add(jsonEncode(ticket));
       channel.stream.listen(
         (raw) {
+          if (_disposed || generation != _connectionGeneration ||
+              channel != _socket) return;
           final data = jsonDecode(raw as String) as Map<String, dynamic>;
           if (data['type'] == 'ready') {
             socketReady = true;
@@ -325,16 +355,17 @@ class AppModel extends ChangeNotifier {
           }
           if (!_disposed) notifyListeners();
         },
-        onDone: () => _lostConnection(channel),
-        onError: (_) => _lostConnection(channel),
+        onDone: () => _lostConnection(channel, generation),
+        onError: (_) => _lostConnection(channel, generation),
       );
     } catch (_) {
-      _lostConnection(_socket);
+      _lostConnection(_socket, generation);
     }
   }
 
-  void _lostConnection(WebSocketChannel? channel) {
-    if (channel != _socket || _disposed) return;
+  void _lostConnection(WebSocketChannel? channel, int generation) {
+    if (channel != _socket || _disposed ||
+        generation != _connectionGeneration) return;
     socketReady = false;
     _reconnect?.cancel();
     if (token != null) {
@@ -514,6 +545,7 @@ class AppModel extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _connectionGeneration++;
     _bots?.cancel();
     _poll?.cancel();
     _reconnect?.cancel();
