@@ -6,8 +6,10 @@ Working code and verified provider integrations are different. This first browse
 
 - Crew lifecycle (join/leave, transfer ownership, remove members, rotate invite and delete) and moderator account suspension/restoration with audit were merged into `main`. Suspensions revoke live sessions, socket tickets and room participation.
 - Self-service personal data export and account deletion/anonymization have automated server tests. Historical snapshots/backups and real-life privacy/legal acceptance are still separate tasks; this does **not** certify end-to-end GDPR compliance.
-- API suite expanded to 15 tests, including irreversible deletion while a room is active, coin settlement, retained-game pseudonymization and post-restart verification. Live media and real provider SMS deliveries are not exercised by these offline tests.
+- API suite expanded to 16 tests, including irreversible deletion while a room is active, coin settlement, retained-game pseudonymization and post-restart verification. Live media and real provider SMS deliveries are not exercised by these offline tests.
 - A separate development-only, local SMS provider stub exercises Twilio-compatible request/verify, incorrect and accepted codes, phone account recovery, per-phone request throttling that survives a restart, and the daily limit. It sends no SMS and does not certify real delivery.
+- A separate 16-client live WebSocket test runs two eight-seat rooms concurrently. It verifies room isolation, immediate waiting-lobby offline presence, simultaneous match starts, independent coin settlement and no cross-room broadcasts. This is a local integration load sample, **not** a public Internet soak test.
+- Camera and microphone controls no longer report enabled when there is no LiveKit participant; a Flutter test guards the disconnected state. Actual published media remains unverified until a provider is configured.
 - The earlier crew/moderation PR passed Web/Flutter, Android debug, iOS unsigned and Playwright software-WebGL CI. New account-deletion UI must pass its own CI before merge.
 
 ## Autonomous verification update · 2026-11-03
@@ -15,7 +17,7 @@ Working code and verified provider integrations are different. This first browse
 | Area | Web | Android / iOS | Still missing |
 |---|---|---|---|
 | Rendering | Cloud browser could load Flutter and navigate to practice, but its GPU has **WebGL disabled**. Explicit original-artwork error screen now replaces infinite spinner. Optional software-WebGL Playwright CI checks 320/393/430px after push. | Native app builds via GitHub Actions; no physical device available | Actual GPU screenshot and touch acceptance against reference |
-| Gameplay | Node engine simulates 100 full matches; Flutter practice 30 full eight-player matches; API integration tests 8 actual HTTP users, two WebSocket clients, turn race/409, player privacy, catch, payout-once and reconnect | Logic shared with web; real OS input not verified | Real-device touch test and server soak test |
+| Gameplay | Node engine simulates 100 full matches; Flutter practice 30 full eight-player matches; API integration tests eight HTTP users, turn race/409, player privacy, catch, payout-once and reconnect; a separate test runs 16 WebSockets across two tables | Logic shared with web; real OS input not verified | Real-device touch test and public-server soak test |
 | Accounts | Guest review sessions persist through real server stop/restart in integration test, SMS stays unconfigured | Secure native session storage compiled in CI | Real phone SMS delivery and security review |
 | Video | Token verifier tests watcher vs player media grants, stranger denied | LiveKit client compiles | Live media server and multi-camera test with physical clients |
 | Clips | Playwright captures a ~10-second canvas recording; H.264 MP4 is selected only when explicitly supported, otherwise downloads a correctly labelled WebM | WebView recording/sharing not validated | Real Instagram/TikTok app handoff, MP4 compatibility/transcoding on unsupported devices |

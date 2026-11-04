@@ -51,7 +51,7 @@ npm run check
 npm test
 ```
 
-Tests cover turn/bid validation, dice privacy, catches, elimination, forfeiture, atomic settlement and duplicate requests. The Node engine simulates 100 complete matches; Flutter practice simulates 30 eight-player matches. The API test uses a temporary database and never sends SMS or contacts LiveKit.
+Tests cover turn/bid validation, dice privacy, catches, elimination, forfeiture, atomic settlement, duplicate requests and immediate WebSocket presence updates. The Node engine simulates 100 complete matches; Flutter practice simulates 30 eight-player matches; the API also exercises two simultaneous eight-seat rooms with 16 authenticated sockets. Tests use a temporary database; the SMS protocol test uses a local provider stub, while LiveKit's actual media transport is not contacted.
 
 ## Mobile and ownership
 

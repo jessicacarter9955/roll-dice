@@ -632,7 +632,14 @@ wss.on('connection', (ws, request) => {
   });
   ws.on('close', () => {
     clearTimeout(timeout);
-    if (ws.userId) { connections.get(ws.userId)?.delete(ws); if (!connections.get(ws.userId)?.size) connections.delete(ws.userId); }
+    if (ws.userId) {
+      connections.get(ws.userId)?.delete(ws);
+      if (!connections.get(ws.userId)?.size) connections.delete(ws.userId);
+      // Waiting tables do not have a one-second game tick. Tell remaining
+      // clients immediately when a seat goes offline instead of leaving a
+      // stale green presence indicator until another action is made.
+      for (const room of rooms.values()) if (inRoom(room, {id: ws.userId})) broadcast(room);
+    }
   });
 });
 let ticks = 0;
