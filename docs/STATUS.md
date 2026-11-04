@@ -11,7 +11,7 @@ Working code and verified provider integrations are different. This first browse
 - A separate 16-client live WebSocket test runs two eight-seat rooms concurrently. It verifies room isolation, immediate waiting-lobby offline presence, simultaneous match starts, independent coin settlement and no cross-room broadcasts. This is a local integration load sample, **not** a public Internet soak test.
 - Camera and microphone controls no longer report enabled when there is no LiveKit participant; a Flutter test guards the disconnected state. Actual published media remains unverified until a provider is configured.
 - Profile changes now synchronize the name, visibility and bio in saved table seats, current game participants and authored chat, broadcasting to connected spectators after a single database commit. A rejected duplicate rename leaves both the account and room snapshots unchanged.
-- Video buttons now distinguish connected, reconnecting and disconnected LiveKit transports. Camera/microphone controls reject disconnected rooms; a rejoin disposes old listeners and tracks. Actual published media still requires a real provider and device verification.
+- Flutter WebSocket connection attempts now carry an epoch: old tickets, event streams and failures cannot overwrite a newer connection after a reconnect, service switch or logout. Tests exercise out-of-order tickets and disposal during a pending ticket.
 - The earlier crew/moderation PR passed Web/Flutter, Android debug, iOS unsigned and Playwright software-WebGL CI. New account-deletion UI must pass its own CI before merge.
 
 ## Autonomous verification update · 2026-11-03
