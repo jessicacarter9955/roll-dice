@@ -381,14 +381,49 @@ app.post('/api/me/delete', async (req, res) => {
 });
 app.post('/api/auth/logout', (req, res) => { db.prepare('DELETE FROM sessions WHERE hash=?').run(hash(req.headers.authorization.replace(/^Bearer /, ''))); res.json({ ok: true }); });
 app.patch('/api/me', (req, res) => {
-  const user = req.user;
+  const user = {...req.user};
+  const previousName = user.name;
   if (req.body.name !== undefined) { if (!validName(req.body.name)) fail('Invalid username.'); user.name = req.body.name; }
   if (req.body.bio !== undefined) { if (typeof req.body.bio !== 'string' || req.body.bio.length > 160) fail('Bio must be 160 characters or fewer.'); user.bio = req.body.bio; }
   if (req.body.private !== undefined) user.private = req.body.private === true;
   for (const [key, min, max] of [['dailyMinutes', 5, 240], ['reminderMinutes', 5, 60]]) {
     if (req.body[key] !== undefined) { if (!Number.isInteger(req.body[key]) || req.body[key] < min || req.body[key] > max) fail(`Invalid ${key}.`); user[key] = req.body[key]; }
   }
-  try { saveUser(user); } catch (e) { if (e.errcode === 2067 || e.message?.startsWith('UNIQUE constraint failed')) fail('That username is taken.'); throw e; }
+  // A rename must not leave stale names in active tables, dice results or chat.
+  // Save the profile and affected room snapshots in one transaction, then emit
+  // notifications only after commit. A rejected duplicate name changes nothing.
+  const changedRooms = [];
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    saveUser(user);
+    if (user.name !== previousName || user.bio !== req.user.bio || user.private !== req.user.private) {
+      for (const room of rooms.values()) {
+        if (!room.players.some(p => p.id === user.id) &&
+            !room.game?.players.some(p => p.id === user.id) &&
+            !room.chat.some(message => message.userId === user.id)) continue;
+        const updated = structuredClone(room);
+        for (const player of updated.players) if (player.id === user.id) {
+          Object.assign(player, publicUser(user));
+        }
+        for (const player of updated.game?.players || []) if (player.id === user.id) {
+          player.name = user.name;
+        }
+        for (const message of updated.chat) if (message.userId === user.id) {
+          message.name = user.name;
+        }
+        if (updated.name === `${previousName}'s circle`)
+          updated.name = `${user.name}'s circle`;
+        persist(updated);
+        changedRooms.push(updated);
+      }
+    }
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    if (e.errcode === 2067 || e.message?.startsWith('UNIQUE constraint failed')) fail('That username is taken.');
+    throw e;
+  }
+  for (const room of changedRooms) { rooms.set(room.id, room); broadcast(room); }
   res.json(me(user));
 });
 app.get('/api/players', (req, res) => {
