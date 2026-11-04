@@ -252,6 +252,27 @@ class AppModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> deleteAccount() async {
+    await request(
+      '/me/delete',
+      method: 'POST',
+      body: {'confirmation': 'DELETE MY ACCOUNT'},
+    );
+    token = null; // Clear auth before closing the socket to suppress reconnect.
+    _reconnect?.cancel();
+    await _socket?.sink.close();
+    _socket = null;
+    socketReady = false;
+    user = null;
+    room = null;
+    rooms = [];
+    practice = null;
+    _bots?.cancel();
+    _practiceClock?.cancel();
+    await _deleteSession();
+    notifyListeners();
+  }
+
   Future<void> refreshRooms() async {
     rooms = await request('/rooms') as List;
   }
