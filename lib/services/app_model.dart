@@ -339,7 +339,9 @@ class AppModel extends ChangeNotifier {
       channel.stream.listen(
         (raw) {
           if (_disposed || generation != _connectionGeneration ||
-              channel != _socket) return;
+              channel != _socket) {
+            return;
+          }
           final data = jsonDecode(raw as String) as Map<String, dynamic>;
           if (data['type'] == 'ready') {
             socketReady = true;
@@ -365,7 +367,9 @@ class AppModel extends ChangeNotifier {
 
   void _lostConnection(WebSocketChannel? channel, int generation) {
     if (channel != _socket || _disposed ||
-        generation != _connectionGeneration) return;
+        generation != _connectionGeneration) {
+      return;
+    }
     socketReady = false;
     _reconnect?.cancel();
     if (token != null) {
