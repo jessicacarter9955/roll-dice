@@ -59,6 +59,30 @@ test('Flutter portrait lobby enters practice with the original renderer behind c
   await page.screenshot({path: 'visual-artifacts/flutter-practice-393x852.png'});
 });
 
+test('authoritative dice land on the exact five private values without a late correction', async ({page}) => {
+  await page.goto(`${prefix}/table/index.html`);
+  await expect(page.locator('#loading-overlay')).toBeHidden({timeout: 20000});
+  await expect(page.locator('#graphics-error')).toBeHidden();
+  // The self-hosted table accepts the same state event Flutter sends it. Keep
+  // the hand fixed so a late visual correction cannot hide a random outcome.
+  await page.evaluate(() => window.postMessage(JSON.stringify({
+    type: 'state', round: 1, phase: 'bidding', practice: true,
+    dice: [1, 2, 3, 4, 5], totalDice: 20,
+    myTurn: true, busy: false, status: 'Il tuo turno',
+  }), location.origin));
+  await expect(page.locator('#rollLog')).toBeVisible();
+  await expect(page.locator('#rollLogStatus')).toHaveText('Lancio sul tavolo in corso…', {timeout: 15000});
+  await page.screenshot({path: 'visual-artifacts/authoritative-throw-393x852.png'});
+  await expect(page.locator('#rollLogStatus')).toHaveText('Dadi fermi · mano privata', {timeout: 15000});
+  await expect(page.locator('#rollLogFaces')).toContainText('D1: 1');
+  await expect(page.locator('#rollLogFaces')).toContainText('D2: 2');
+  await expect(page.locator('#rollLogFaces')).toContainText('D3: 3');
+  await expect(page.locator('#rollLogFaces')).toContainText('D4: 4');
+  await expect(page.locator('#rollLogFaces')).toContainText('D5: 5');
+  await expect(page.locator('canvas#c')).toHaveAttribute('data-roll-consistent', 'true', {timeout: 10000});
+  await page.screenshot({path: 'visual-artifacts/authoritative-settled-393x852.png'});
+});
+
 test('browser can record an actual 10-second table clip as a video file', async ({page}) => {
   await page.goto(`${prefix}/table/index.html`);
   await expect(page.locator('#loading-overlay')).toBeHidden({timeout: 20000});
