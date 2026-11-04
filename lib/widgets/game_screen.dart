@@ -631,16 +631,28 @@ class _GameScreenState extends State<GameScreen> {
                 style: const TextStyle(color: Color(0xfff0aaa3), fontSize: 12),
               ),
             const SizedBox(height: 12),
-            if (widget.video.room == null)
+            if (!widget.video.connected) ...[
               FilledButton.icon(
-                onPressed: widget.video.connecting
+                onPressed: widget.video.connecting || widget.video.reconnecting
                     ? null
                     : () => widget.video.connect(app),
                 icon: const Icon(Icons.videocam_outlined),
                 label: Text(
-                  widget.video.connecting ? 'Connecting…' : 'Join video',
+                  widget.video.connecting
+                      ? 'Connecting…'
+                      : widget.video.reconnecting
+                      ? 'Reconnecting video…'
+                      : widget.video.room != null
+                      ? 'Rejoin video'
+                      : 'Join video',
                 ),
-              )
+              ),
+              if (widget.video.room != null)
+                TextButton(
+                  onPressed: widget.video.disconnect,
+                  child: const Text('Disconnect video'),
+                ),
+            ]
             else ...[
               if (!app.watching)
                 Wrap(
