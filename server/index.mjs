@@ -292,6 +292,69 @@ app.get('/api/me/export', (req, res) => {
   res.json({exportedAt: new Date().toISOString(), profile: req.user, crews: membership,
     gameActivity: played, submittedReports: reports});
 });
+// Shared game results remain usable by the other participants, but the
+// departing person's identifier and display name are de-identified. Chat
+// authored by that person is removed rather than retained under an alias.
+function redactGameIdentity(value, id, name, alias, key = '') {
+  if (Array.isArray(value)) return value.map(v => redactGameIdentity(v, id, name, alias));
+  if (value && typeof value === 'object') return Object.fromEntries(
+    Object.entries(value).map(([k, v]) => [k, redactGameIdentity(v, id, name, alias, k)]));
+  if (value === id) return alias;
+  if ((key === 'name' || key === 'loserName') && value === name) return 'Deleted player';
+  return value;
+}
+app.post('/api/me/delete', async (req, res) => {
+  if (req.body?.confirmation !== 'DELETE MY ACCOUNT')
+    fail('Enter DELETE MY ACCOUNT to permanently delete your account.');
+  const {id, name} = req.user;
+  const affected = [];
+  for (const room of rooms.values()) {
+    if (!JSON.stringify(room).includes(id)) continue;
+    const alias = `deleted-${uid()}`; // Do not link the same ex-member across tables.
+    mutate(room, () => {
+      if (room.game) forfeit(room.game, id);
+      room.players = room.players.filter(p => p.id !== id);
+      room.watchers = room.watchers.filter(userId => userId !== id);
+      room.chat = room.chat.filter(message => message.userId !== id);
+      room.rematch = room.rematch.filter(userId => userId !== id);
+      room.requests = room.requests.filter(request => !request.startsWith(`${id}:`));
+      if (room.hostId === id) room.hostId = room.players.find(p => !p.bot)?.id || '';
+      if (room.name === `${name}'s circle`) room.name = 'Former host circle';
+      if (room.game) room.game = redactGameIdentity(room.game, id, name, alias);
+    });
+    affected.push(room.id);
+  }
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    for (const row of db.prepare('SELECT id, data FROM crews').all()) {
+      const crew = JSON.parse(row.data);
+      if (!crew.members.includes(id)) continue;
+      crew.members = crew.members.filter(member => member !== id);
+      if (!crew.members.length) db.prepare('DELETE FROM crews WHERE id=?').run(crew.id);
+      else {
+        if (crew.ownerId === id) crew.ownerId = crew.members[0];
+        db.prepare('UPDATE crews SET data=? WHERE id=?').run(JSON.stringify(crew), crew.id);
+      }
+    }
+    for (const row of db.prepare('SELECT data FROM users WHERE id!=?').all(id)) {
+      const other = JSON.parse(row.data);
+      if (other.blocked.includes(id)) {
+        other.blocked = other.blocked.filter(blockedId => blockedId !== id);
+        saveUser(other);
+      }
+    }
+    db.prepare('DELETE FROM reports WHERE reporter_id=? OR target_id=?').run(id, id);
+    db.prepare('DELETE FROM moderation_actions WHERE user_id=?').run(id);
+    db.prepare('DELETE FROM sessions WHERE user_id=?').run(id);
+    db.prepare('DELETE FROM users WHERE id=?').run(id);
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+  for (const [key, grant] of tickets) if (grant.id === id) tickets.delete(key);
+  for (const ws of connections.get(id) || []) ws.close(1008, 'Account deleted');
+  await Promise.all(affected.map(roomId => kickVideo(roomId, id)));
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ok: true, deleted: true});
+});
 app.post('/api/auth/logout', (req, res) => { db.prepare('DELETE FROM sessions WHERE hash=?').run(hash(req.headers.authorization.replace(/^Bearer /, ''))); res.json({ ok: true }); });
 app.patch('/api/me', (req, res) => {
   const user = req.user;

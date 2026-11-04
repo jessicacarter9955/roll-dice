@@ -1053,6 +1053,43 @@ class _ProfilePageState extends State<ProfilePage> {
             onPressed: () => app.run(app.logout),
             child: const Text('Sign out'),
           ),
+        if (app.user != null)
+          TextButton.icon(
+            onPressed: app.busy ? null : () async {
+              String confirmation = '';
+              final approved = await showDialog<bool>(
+                context: context,
+                builder: (dialogContext) => StatefulBuilder(
+                  builder: (dialogContext, setDialogState) => AlertDialog(
+                    title: const Text('Permanently delete account?'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('This removes your account, sessions, crew memberships and messages. Shared game history will be anonymized. Export your data first if needed. Copies in backups may remain until their retention period expires.'),
+                        const SizedBox(height: 16),
+                        TextField(
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          decoration: const InputDecoration(labelText: 'Type DELETE to confirm'),
+                          onChanged: (value) => setDialogState(() => confirmation = value),
+                        ),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+                      FilledButton(
+                        onPressed: confirmation == 'DELETE' ? () => Navigator.pop(dialogContext, true) : null,
+                        child: const Text('Delete permanently'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+              if (approved == true && mounted) await app.run(app.deleteAccount);
+            },
+            icon: const Icon(Icons.delete_forever_outlined, size: 16),
+            label: const Text('Delete my account'),
+          ),
         const SizedBox(height: 12),
         const Center(
           child: Text(
