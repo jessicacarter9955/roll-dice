@@ -296,7 +296,7 @@ class _StreetCircleAppState extends State<StreetCircleApp> {
                               size: 16,
                             ),
                             label: const Text(
-                              'Read the rules',
+                              'Regole / Rules',
                               style: TextStyle(fontSize: 12),
                             ),
                           ),
@@ -338,7 +338,48 @@ class _StreetCircleAppState extends State<StreetCircleApp> {
             ),
           Expanded(
             child: app.room != null
-                ? GameScreen(app: app, video: video)
+                ? Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      GameScreen(app: app, video: video),
+                      Positioned(
+                        top: 54,
+                        left: 6,
+                        right: 6,
+                        child: DiceOwnershipLegend(
+                          players: app.players,
+                          myId: app.myId,
+                          watching: app.watching,
+                          phase: app.game?['phase'] as String? ?? 'waiting',
+                          revealOwner: app.players
+                              .where((p) => p['id'] ==
+                                  (app.game?['resolution'] as Map?)?['bid']?['playerId'])
+                              .firstOrNull?['name'] as String?,
+                          turnIndex: app.game?['phase'] == 'bidding'
+                              ? app.game?['turn'] as int?
+                              : null,
+                        ),
+                      ),
+                      Positioned(
+                        top: 54,
+                        right: 6,
+                        child: Material(
+                          color: const Color(0xdf101814),
+                          borderRadius: BorderRadius.circular(18),
+                          child: TextButton.icon(
+                            key: const Key('game-rules-button'),
+                            onPressed: () => showSheet(context, const RulesContent()),
+                            style: TextButton.styleFrom(
+                              foregroundColor: gold,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                            ),
+                            icon: const Icon(Icons.help_outline, size: 17),
+                            label: const Text('Regole', style: TextStyle(fontSize: 12)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
                 : Column(
                     children: [
                       Padding(
@@ -503,6 +544,16 @@ class _StreetCircleAppState extends State<StreetCircleApp> {
               ],
             ),
             const SizedBox(height: 22),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                key: const Key('lobby-rules-button'),
+                onPressed: () => showSheet(context, const RulesContent()),
+                icon: const Icon(Icons.menu_book_outlined, size: 18),
+                label: const Text('Regole / How to play'),
+              ),
+            ),
+            const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(

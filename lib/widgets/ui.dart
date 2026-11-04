@@ -196,49 +196,130 @@ void toast(BuildContext context, String message) =>
       SnackBar(content: Text(message), duration: const Duration(seconds: 5)),
     );
 
-class RulesContent extends StatelessWidget {
+class RulesContent extends StatefulWidget {
   const RulesContent({super.key});
+
+  @override
+  State<RulesContent> createState() => _RulesContentState();
+}
+
+class _RulesContentState extends State<RulesContent> {
+  bool italian = true;
+
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const Eyebrow('LIAR’S DICE · STREET CIRCLE RULES V1'),
+      Row(
+        children: [
+          const Expanded(child: Eyebrow('STREET CIRCLE · LIAR’S DICE')),
+          TextButton(
+            key: const Key('rules-it'),
+            onPressed: () => setState(() => italian = true),
+            style: TextButton.styleFrom(
+              foregroundColor: italian ? gold : muted,
+              backgroundColor: italian ? gold.withValues(alpha: .15) : null,
+            ),
+            child: const Text('IT'),
+          ),
+          TextButton(
+            key: const Key('rules-en'),
+            onPressed: () => setState(() => italian = false),
+            style: TextButton.styleFrom(
+              foregroundColor: italian ? muted : gold,
+              backgroundColor: italian ? null : gold.withValues(alpha: .15),
+            ),
+            child: const Text('EN'),
+          ),
+        ],
+      ),
       const SizedBox(height: 14),
-      const Text(
-        'A good bluff goes\na long way.',
-        style: TextStyle(
+      Text(
+        italian ? 'Come si gioca' : 'How to play',
+        style: const TextStyle(
           fontSize: 30,
           height: 1.1,
           fontWeight: FontWeight.w600,
         ),
       ),
-      const SizedBox(height: 22),
-      for (final (title, body) in [
+      const SizedBox(height: 16),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: gold.withValues(alpha: .10),
+          border: Border.all(color: gold.withValues(alpha: .35)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              italian ? 'Bid NON è una puntata di denaro' : 'Bid is NOT a money bet',
+              style: const TextStyle(color: gold, fontSize: 15, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 7),
+            Text(
+              italian
+                  ? 'Con Bid dichiari quanti dadi di un certo valore pensi ci siano fra TUTTI i giocatori. Non spendi monete a ogni Bid. La quota del tavolo, se prevista, si paga una sola volta all’inizio; in pratica è gratis.'
+                  : 'Bid means claiming how many dice of a certain face you think ALL players have combined. It does not spend coins each time. The table entry, if any, is paid once at match start; practice is free.',
+              style: const TextStyle(color: Colors.white, fontSize: 12, height: 1.6),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 20),
+      for (final (title, body) in (italian ? [
         (
-          'Five dice. Just for you.',
-          '2–8 players start with five hidden dice. Every face counts as itself. Ones are not wild.',
+          '1. Perché i dadi appaiono subito?',
+          'All’inizio di ogni round i tuoi dadi vengono lanciati automaticamente: non devi premere Roll. I dadi bianchi con i numeri visibili sono i TUOI (anche quelli che vedi volare durante il lancio). Le due file di supporti sono l’aspetto del vecchio tavolo a due mani: i cerchi vuoti non sono i dadi di Maya o degli altri. I loro valori restano segreti fino a Catch. La striscia sopra il tavolo mostra nomi e quantità rimaste; il bordo oro indica chi ha il turno.',
         ),
         (
-          'Make a call. Raise a call.',
-          'Bid how many dice of a face exist across the whole table. Example: “three fours”. The next bid must raise the quantity, or the face at the same quantity.',
+          '2. Scegli quantità e faccia, poi Bid',
+          'Nel campo numerico scegli QUANTI dadi e nel selettore scegli il VALORE (da 1 a 6). Esempio: quantità 3, faccia 4, premi il dado/Bid = “Secondo me sul tavolo ci sono almeno tre 4”. Puoi anche bluffare.',
         ),
         (
-          'Don’t believe it? Catch.',
-          'On your turn, challenge the previous bid. Everyone’s dice are revealed. If the count meets or exceeds the bid, the catcher loses one die. Otherwise the bidder loses one.',
+          '3. Il giocatore successivo alza o sfida',
+          'Deve dichiarare più dadi (per esempio da 3×4 a 4×1) oppure lo stesso numero con faccia maggiore (3×4 → 3×5). In alternativa preme Catch! per dire “Non ci credo!”. Catch è disabilitato finché nessuno ha fatto un Bid.',
         ),
         (
-          'Stay in the circle.',
-          'The loser starts the next round with fresh dice. At zero dice you watch. The last player with dice wins the match and the free-coin pot.',
+          '4. Cosa succede dopo Catch?',
+          'Si scoprono tutti i dadi nel riquadro del risultato; la seconda fila mostra allora la mano dell’ultimo dichiarante. Se la dichiarazione era vera (o sottostimata), chi ha premuto Catch perde 1 dado. Se era falsa, perde 1 dado chi ha fatto Bid. Esempio: Bid “tre 4”, ma sul tavolo ci sono solo due 4 → perde chi ha dichiarato.',
         ),
         (
-          'Keep it friendly.',
-          'Each player pays the same entry once per match. No raising coin stakes during a hand. No purchases, withdrawals or cash value. Practice never changes your wallet.',
+          '5. Next round, Balance e In Play',
+          'Dopo il risultato premi Next round: si rilanciano automaticamente i dadi rimasti. A zero dadi sei eliminato; vince l’ultimo rimasto. Balance è il saldo di monete gratuite. In Play è il montepremi della partita, NON il valore dell’ultimo Bid.',
         ),
         (
-          'A connection can drop.',
-          'Connected tables give you 45 seconds per call. A timed-out turn catches the last bid, or makes an opening bid. A disconnect has 60 seconds to reconnect before forfeiture. Leaving forfeits immediately.',
+          '6. Altri pulsanti e tempi',
+          'In alto: altoparlante = suono, tavolozza = immagine del tavolo, dado = effetto shake. Bid e Catch sono attivi solo nel tuo turno. Online hai 45 secondi per decidere e 60 secondi per riconnetterti; in pratica non perdi monete.',
         ),
-      ])
+      ] : [
+        (
+          '1. Why do dice appear immediately?',
+          'Your dice roll automatically at the start of each round. The numbered dice you see (including those rolling in the middle) are YOUR hand. The two rows of holders come from the original two-hand table: empty cups do not represent Maya or any other player. Their values remain secret until Catch. The player strip above the board shows everyone’s name and remaining dice count; the gold outline marks whose turn it is.',
+        ),
+        (
+          '2. Quantity + face + Bid',
+          'Choose a quantity and a face (1–6). For example, 3 and 4 means “I think there are at least three fours across everyone’s dice.” Press the dice/Bid button to make that claim; bluffing is allowed.',
+        ),
+        (
+          '3. Raise the claim or Catch!',
+          'The next player must raise the quantity (3×4 → 4×1) or keep the quantity and raise the face (3×4 → 3×5). Alternatively, Catch! challenges the previous claim. Catch is disabled until someone has bid.',
+        ),
+        (
+          '4. Resolving Catch',
+          'Catch reveals every hand in the result sheet; the second rack then shows the last bidder’s hand. If the claim is true, the challenger loses one die; if false, the bidder loses one. Example: someone claimed three fours but only two exist; the bidder loses.',
+        ),
+        (
+          '5. Next round, Balance and In Play',
+          'Next round rolls the remaining dice automatically. A player with zero dice is out; the last player wins. Balance shows free coins. In Play is the whole match pot, not your latest Bid.',
+        ),
+        (
+          '6. Other controls and timing',
+          'Top controls change sound, table art and shaking. Bid/Catch only work on your turn. Online you have 45 seconds to act and 60 seconds to reconnect; practice never changes your wallet.',
+        ),
+      ]))
         Padding(
           padding: const EdgeInsets.only(bottom: 22),
           child: Column(
@@ -263,9 +344,114 @@ class RulesContent extends StatelessWidget {
             ],
           ),
         ),
-      const Text(
-        'These are selected house rules. Liar’s Dice has other variants.',
-        style: TextStyle(color: muted, fontSize: 10),
+      Text(
+        italian
+            ? 'Queste sono le regole adottate da Street Circle: esistono altre varianti di Liar’s Dice. I dadi con valore 1 non sono jolly.'
+            : 'These are Street Circle house rules; other Liar’s Dice variants exist. Ones are not wild.',
+        style: const TextStyle(color: muted, fontSize: 10),
+      ),
+    ],
+  );
+}
+
+/// A compact guide to public dice ownership. Opponents' actual faces remain
+/// hidden until a Catch, even though the original ZIP table has two racks.
+class DiceOwnershipLegend extends StatelessWidget {
+  const DiceOwnershipLegend({
+    super.key,
+    required this.players,
+    required this.myId,
+    required this.watching,
+    required this.phase,
+    this.turnIndex,
+    this.revealOwner,
+  });
+
+  final List<Map<String, dynamic>> players;
+  final String myId;
+  final bool watching;
+  final String phase;
+  final int? turnIndex;
+  final String? revealOwner;
+
+  String get ownershipText {
+    final revealed = phase == 'reveal' || phase == 'finished';
+    if (watching) {
+      return revealed ? 'Spettatore · risultato visibile' : 'Spettatore · dadi segreti';
+    }
+    if (phase == 'waiting') {
+      return 'In attesa · dadi non ancora lanciati';
+    }
+    if (revealed) {
+      return 'Dadi: TU + ${revealOwner ?? 'ultimo dichiarante'}';
+    }
+    return '🎲 Dadi visibili: TUOI · altri segreti';
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        key: const Key('dice-ownership-label'),
+        margin: const EdgeInsets.only(right: 108),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: const Color(0xe6101814),
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Text(
+          ownershipText,
+          maxLines: 2,
+          style: const TextStyle(fontSize: 10, color: Colors.white, height: 1.2),
+        ),
+      ),
+      const SizedBox(height: 5),
+      SingleChildScrollView(
+        key: const Key('player-dice-strip'),
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (var i = 0; i < players.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(right: 5),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: players[i]['id'] == myId
+                        ? const Color(0xee294030)
+                        : const Color(0xe0101814),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: turnIndex == i ? gold : Colors.white24,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        players[i]['id'] == myId
+                            ? Icons.casino_outlined
+                            : Icons.lock_outline,
+                        size: 12,
+                        color: players[i]['id'] == myId ? gold : muted,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${players[i]['id'] == myId ? 'TU' : players[i]['name']} · ${players[i]['count'] ?? 5}',
+                        style: const TextStyle(fontSize: 10, color: Colors.white),
+                      ),
+                      if (turnIndex == i) ...[
+                        const SizedBox(width: 5),
+                        const Icon(Icons.arrow_forward_ios, color: gold, size: 10),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     ],
   );
