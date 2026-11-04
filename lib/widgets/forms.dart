@@ -267,15 +267,10 @@ class _ServiceFormState extends State<ServiceForm> {
   Future<void> recheck() async {
     setState(() { busy = true; error = null; });
     try {
-      final health = await widget.app.request('/health') as Map;
-      if (health['ok'] != true) throw Exception('The game API did not pass its health check.');
-      widget.app.config = Map<String, dynamic>.from(await widget.app.request('/config') as Map);
-      widget.app.server = true;
+      await widget.app.recheckServer();
     } catch (e) {
-      widget.app.server = false;
       error = e.toString().replaceFirst('Exception: ', '');
     } finally {
-      widget.app.notifyListeners();
       if (mounted) setState(() => busy = false);
     }
   }

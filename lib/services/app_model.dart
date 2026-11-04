@@ -202,6 +202,24 @@ class AppModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Read-only connectivity check for the service diagnostics sheet.
+  /// A configured provider is not proof that its real-world delivery works.
+  Future<void> recheckServer() async {
+    try {
+      final health = await request('/health') as Map;
+      if (health['ok'] != true) {
+        throw Exception('The game API did not pass its health check.');
+      }
+      config = Map<String, dynamic>.from(await request('/config') as Map);
+      server = true;
+    } catch (_) {
+      server = false;
+      rethrow;
+    } finally {
+      if (!_disposed) notifyListeners();
+    }
+  }
+
   Future<void> login(String name) async {
     await _signedIn(
       Map<String, dynamic>.from(
