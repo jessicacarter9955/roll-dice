@@ -356,7 +356,7 @@ class _StreetCircleAppState extends State<StreetCircleApp> {
                                   (app.game?['resolution'] as Map?)?['bid']?['playerId'])
                               .firstOrNull?['name'] as String?,
                           turnIndex: app.game?['phase'] == 'bidding'
-                              ? app.game?['turn'] as int?
+                              ? (app.game?['turn'] as int?)
                               : null,
                         ),
                       ),
