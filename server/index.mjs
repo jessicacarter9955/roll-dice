@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, phone TEXT UNIQUE, userna
 CREATE TABLE IF NOT EXISTS sessions (hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), expires INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS rooms (id TEXT PRIMARY KEY, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS crews (id TEXT PRIMARY KEY, code TEXT UNIQUE, data TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS moderation_actions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, action TEXT NOT NULL, reason TEXT NOT NULL, created_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS reports (id TEXT PRIMARY KEY, reporter_id TEXT NOT NULL, target_id TEXT NOT NULL, room_id TEXT, reason TEXT NOT NULL, details TEXT NOT NULL, created_at INTEGER NOT NULL);`);
 // Existing databases created before moderation shipped need a non-destructive migration.
 const reportColumns = new Set(db.prepare('PRAGMA table_info(reports)').all().map(c => c.name));
@@ -68,6 +69,7 @@ function newUser(name, phone = null) {
 const validName = name => typeof name === 'string' && /^[a-zA-Z0-9_]{3,20}$/.test(name);
 const validPhone = phone => typeof phone === 'string' && /^\+[1-9]\d{7,14}$/.test(phone);
 function session(user) {
+  if (user.suspended) fail('This account is suspended. Contact support.', 403);
   const token = randomBytes(32).toString('base64url');
   db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash(token), user.id, Date.now() + 30 * 86400000);
   return { token, user: me(user) };
@@ -76,7 +78,9 @@ function authToken(token) {
   if (!token || token.length > 100) fail('Please sign in.', 401);
   const row = db.prepare('SELECT user_id FROM sessions WHERE hash=? AND expires>?').get(hash(token), Date.now());
   if (!row) fail('Your session has expired. Please sign in again.', 401);
-  return getUser(row.user_id);
+  const user = getUser(row.user_id);
+  if (user.suspended) fail('This account is suspended. Contact support.', 403);
+  return user;
 }
 const rooms = new Map(db.prepare('SELECT data FROM rooms').all().map(r => { const room = JSON.parse(r.data); return [room.id, room]; }));
 for (const room of rooms.values()) {
@@ -172,7 +176,9 @@ app.get('/admin/api/reports', (req, res) => {
   const status = req.query.status === 'reviewed' ? 'reviewed' : req.query.status === 'open' ? 'open' : null;
   const rows = db.prepare(`SELECT id, reporter_id AS reporterId, target_id AS targetId,
     room_id AS roomId, reason, details, created_at AS createdAt,
-    status, reviewed_at AS reviewedAt FROM reports
+    status, reviewed_at AS reviewedAt,
+    (SELECT json_extract(data, '$.suspended') FROM users WHERE users.id=reports.target_id) AS targetSuspended
+    FROM reports
     WHERE (? IS NULL OR status=?) ORDER BY created_at DESC LIMIT ? OFFSET ?`)
     .all(status, status, limit, offset);
   res.json({reports: rows, count: db.prepare('SELECT COUNT(*) AS n FROM reports WHERE (? IS NULL OR status=?)').get(status,status).n});
@@ -184,6 +190,51 @@ app.patch('/admin/api/reports/:id', (req, res) => {
   if (result.changes !== 1) fail('Report not found.', 404);
   res.json({ok: true});
 });
+app.get('/admin/api/users/:id', (req, res) => {
+  const user = getUser(req.params.id);
+  const actions = db.prepare('SELECT action, reason, created_at AS createdAt FROM moderation_actions WHERE user_id=? ORDER BY created_at DESC LIMIT 30').all(user.id);
+  res.json({user: {...publicUser(user), suspended: !!user.suspended}, actions});
+});
+app.patch('/admin/api/users/:id/status', async (req, res) => {
+  if (typeof req.body?.suspended !== 'boolean' || typeof req.body.reason !== 'string' ||
+      req.body.reason.trim().length < 8 || req.body.reason.length > 300)
+    fail('A suspension decision and a reason of 8–300 characters are required.');
+  const user = getUser(req.params.id);
+  const suspended = req.body.suspended;
+  if (!!user.suspended === suspended) fail('The account is already in that state.', 409);
+  user.suspended = suspended;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    saveUser(user);
+    db.prepare('DELETE FROM sessions WHERE user_id=?').run(user.id);
+    db.prepare('INSERT INTO moderation_actions VALUES (?,?,?,?,?)').run(uid(), user.id, suspended ? 'suspend' : 'restore', req.body.reason.trim(), Date.now());
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+  if (suspended) {
+    for (const [key, grant] of tickets) if (grant.id === user.id) tickets.delete(key);
+    for (const ws of connections.get(user.id) || []) ws.close(1008, 'Account suspended');
+    const affected = [];
+    for (const room of rooms.values()) {
+      if (!inRoom(room, user)) continue;
+      mutate(room, () => {
+        if (room.game) forfeit(room.game, user.id);
+        room.players = room.players.filter(p => p.id !== user.id);
+        room.watchers = room.watchers.filter(id => id !== user.id);
+        if (room.hostId === user.id) room.hostId = room.players.find(p => !p.bot)?.id || '';
+      });
+      affected.push(room.id);
+    }
+    await Promise.all(affected.map(roomId => kickVideo(roomId, user.id)));
+  }
+  res.json({ok: true, suspended});
+});
+// The Flutter/WebGL client needs a different resource policy; the moderator
+// portal is isolated with a strict, non-inline Content Security Policy.
+app.use('/admin', helmet.contentSecurityPolicy({directives: {
+  defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'"],
+  connectSrc: ["'self'"], objectSrc: ["'none'"], baseUri: ["'none'"],
+  frameAncestors: ["'none'"], formAction: ["'self'"],
+}}));
 app.use('/admin', express.static(resolve(root, 'server/admin'), {index: 'index.html', maxAge: 0}));
 app.post('/api/auth/guest', authLimit, (req, res) => {
   if (!allowGuests) fail('Practice accounts are disabled on this server.', 403);
@@ -223,6 +274,24 @@ app.use('/api', (req, res, next) => {
   next();
 });
 app.get('/api/me', (req, res) => res.json(me(req.user)));
+app.get('/api/me/export', (req, res) => {
+  // Export only the requesting person's information. Never include session
+  // secrets, other players' unrevealed dice or complete private-room snapshots.
+  const id = req.user.id;
+  const membership = db.prepare('SELECT data FROM crews').all()
+    .map(row => JSON.parse(row.data)).filter(c => c.members.includes(id))
+    .map(c => ({id: c.id, name: c.name, owner: c.ownerId === id, code: c.code}));
+  const played = [...rooms.values()].filter(r =>
+    r.players.some(p => p.id === id) || r.game?.players.some(p => p.id === id))
+    .map(r => ({id: r.id, name: r.name, createdOrUpdatedAt: r.updatedAt,
+      chat: r.chat.filter(m => m.userId === id),
+      ownGameEvents: (r.game?.history || []).filter(e => e.playerId === id)}));
+  const reports = db.prepare(`SELECT id, target_id AS targetId, room_id AS roomId, reason,
+    details, created_at AS createdAt, status FROM reports WHERE reporter_id=? ORDER BY created_at DESC`).all(id);
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({exportedAt: new Date().toISOString(), profile: req.user, crews: membership,
+    gameActivity: played, submittedReports: reports});
+});
 app.post('/api/auth/logout', (req, res) => { db.prepare('DELETE FROM sessions WHERE hash=?').run(hash(req.headers.authorization.replace(/^Bearer /, ''))); res.json({ ok: true }); });
 app.patch('/api/me', (req, res) => {
   const user = req.user;
@@ -392,10 +461,57 @@ app.post('/api/crews/join', (req, res) => {
   const row = db.prepare('SELECT data FROM crews WHERE code=?').get(String(req.body.code || '').toUpperCase());
   if (!row) fail('Crew invite not found.', 404);
   const crew = JSON.parse(row.data);
+  if (crew.members.includes(req.user.id)) return res.json(crew);
+  const memberCount = db.prepare('SELECT data FROM crews').all().filter(r => JSON.parse(r.data).members.includes(req.user.id)).length;
+  if (memberCount >= 10) fail('You can belong to at most ten crews.');
   if (crew.members.length >= 50) fail('This crew is full.');
   if (crew.members.some(id => blocked(getUser(id), req.user))) fail('This crew is unavailable because of a block.', 403);
   crew.members = [...new Set([...crew.members, req.user.id])];
   db.prepare('UPDATE crews SET data=? WHERE id=?').run(JSON.stringify(crew), crew.id); res.json(crew);
+});
+function managedCrew(req, ownerOnly = false) {
+  const row = db.prepare('SELECT data FROM crews WHERE id=?').get(req.params.id);
+  if (!row) fail('Crew not found.', 404);
+  const crew = JSON.parse(row.data);
+  if (!crew.members.includes(req.user.id)) fail('You are not a member of this crew.', 403);
+  if (ownerOnly && crew.ownerId !== req.user.id) fail('Only the crew owner may do this.', 403);
+  return crew;
+}
+app.post('/api/crews/:id/leave', (req, res) => {
+  const crew = managedCrew(req);
+  crew.members = crew.members.filter(id => id !== req.user.id);
+  if (!crew.members.length) {
+    db.prepare('DELETE FROM crews WHERE id=?').run(crew.id);
+    return res.json({ok: true, deleted: true});
+  }
+  if (crew.ownerId === req.user.id) crew.ownerId = crew.members[0];
+  db.prepare('UPDATE crews SET data=? WHERE id=?').run(JSON.stringify(crew), crew.id);
+  res.json({ok: true, deleted: false, ownerId: crew.ownerId});
+});
+app.delete('/api/crews/:id', (req, res) => {
+  const crew = managedCrew(req, true);
+  db.prepare('DELETE FROM crews WHERE id=?').run(crew.id);
+  res.json({ok: true});
+});
+app.post('/api/crews/:id/rotate-code', (req, res) => {
+  const crew = managedCrew(req, true);
+  crew.code = code();
+  db.prepare('UPDATE crews SET code=?, data=? WHERE id=?').run(crew.code, JSON.stringify(crew), crew.id);
+  res.json(crew);
+});
+app.post('/api/crews/:id/transfer', (req, res) => {
+  const crew = managedCrew(req, true);
+  if (req.body.userId === req.user.id || !crew.members.includes(req.body.userId)) fail('Choose another crew member to become the owner.');
+  crew.ownerId = req.body.userId;
+  db.prepare('UPDATE crews SET data=? WHERE id=?').run(JSON.stringify(crew), crew.id);
+  res.json(crew);
+});
+app.post('/api/crews/:id/remove-member', (req, res) => {
+  const crew = managedCrew(req, true);
+  if (req.body.userId === req.user.id || !crew.members.includes(req.body.userId)) fail('Choose another crew member to remove.');
+  crew.members = crew.members.filter(id => id !== req.body.userId);
+  db.prepare('UPDATE crews SET data=? WHERE id=?').run(JSON.stringify(crew), crew.id);
+  res.json(crew);
 });
 app.post('/api/socket-ticket', (req, res) => { const ticket = randomBytes(24).toString('base64url'); tickets.set(ticket, { id: req.user.id, expires: Date.now() + 30000 }); res.json({ ticket }); });
 
@@ -418,6 +534,7 @@ wss.on('connection', (ws, request) => {
       const { ticket } = JSON.parse(raw);
       const grant = tickets.get(ticket); tickets.delete(ticket);
       if (!grant || grant.expires < Date.now()) return ws.close(1008, 'Invalid ticket');
+      if (getUser(grant.id).suspended) return ws.close(1008, 'Account suspended');
       clearTimeout(timeout); ws.userId = grant.id; ws.isAlive = true;
       if (!connections.has(grant.id)) connections.set(grant.id, new Set());
       connections.get(grant.id).add(ws);
