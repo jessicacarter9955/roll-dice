@@ -44,6 +44,17 @@
         </div>
 
         <div class="table-readout"><span id="roundLabel">WAITING</span><span>Bid: <b id="currentBid">—</b></span><span><b id="totalDice">0</b> dice</span></div>
+        <aside id="rollLog" class="roll-log" aria-label="Log del tuo lancio" hidden>
+          <div class="roll-log-head">
+            <strong id="rollLogTitle">🎲 TU · ROUND 1</strong>
+            <button id="rollLogToggle" type="button" aria-expanded="true" aria-controls="rollLogDetails" title="Apri o chiudi il log">▾</button>
+          </div>
+          <div id="rollLogDetails">
+            <p id="rollLogStatus">In attesa del lancio…</p>
+            <div id="rollLogFaces" class="roll-log-faces">D1 ? · D2 ? · D3 ? · D4 ? · D5 ?</div>
+            <small id="rollLogCheck">Valori privati: solo tu li vedi.</small>
+          </div>
+        </aside>
         <div class="dock" role="group" aria-label="Game controls and statistics">
           <div class="dock-panel" hidden>
             <div class="hint" id="hint" aria-live="polite"></div>

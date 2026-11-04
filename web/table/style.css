@@ -464,6 +464,15 @@ html,body{background:#171612;font-size:11px}
 .roll-action{display:flex;align-items:center;gap:2px}#rollLabel{font-size:11px;color:#eee}
 #catchBtn,#reopenResult{font-size:12px;border:1px solid #e0c87866;padding:8px 11px;border-radius:8px;background:#12121288;color:#f6e0a6}
 .dock .hint{position:static;max-width:100%;min-height:15px;font-size:10px;line-height:1.4;text-align:center;color:#e0d5b9;cursor:pointer}
+.roll-log{position:absolute;z-index:12;top:117px;left:8px;width:min(176px,44vw);box-sizing:border-box;background:rgba(13,20,18,.86);color:#f3ead2;border:1px solid #dfc47b8c;border-radius:11px;padding:8px 9px;box-shadow:0 4px 20px #0007;pointer-events:auto;backdrop-filter:blur(4px)}
+.roll-log-head{display:flex;align-items:center;justify-content:space-between;gap:4px;color:#ebd48b;font-size:10px;letter-spacing:.3px}
+.roll-log-head button{font-size:16px;line-height:1;padding:0 2px;color:#ebd48b}
+.roll-log p{font-size:10px;line-height:1.4;margin:6px 0;color:#e6e5de}
+.roll-log-faces{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 5px;font-size:10px;font-variant-numeric:tabular-nums}
+.roll-log-faces span{border-radius:4px;background:#ffffff12;padding:3px 4px}
+.roll-log small{display:block;margin-top:6px;font-size:9px;color:#c0c7bd;line-height:1.4}
+.roll-log[data-collapsed="true"] #rollLogDetails{display:none}
+@media (max-width:360px){.roll-log{top:111px;width:145px;padding:6px 7px}.roll-log-head{font-size:9px}}
 .modal{z-index:20;box-sizing:border-box;min-width:0;width:min(330px,calc(100% - 24px));max-height:80vh;overflow:auto;background:rgba(18,22,22,.94);padding:14px}
 .modal h2{font-size:16px}.modal .handline{margin:6px 0;padding:6px}.modal .handline>span{font-size:10px;color:#b1b9bd}.modal .handline b{font-size:13px}.modal .result{font-size:18px}
 .revealed-hand{display:flex;justify-content:space-between;align-items:center;padding:4px 7px;border-bottom:1px solid #ffffff12}.revealed-hand span{font-size:11px}.revealed-hand b{font-size:23px;font-weight:400;letter-spacing:2px}

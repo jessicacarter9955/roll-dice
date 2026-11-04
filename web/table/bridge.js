@@ -11,6 +11,36 @@ export function attachBridge({ canvas, ui, hint, setDice, roll }) {
   const bidLabel = document.getElementById('currentBid');
   const roundLabel = document.getElementById('roundLabel');
   const rollLabel = document.getElementById('rollLabel');
+  const log = document.getElementById('rollLog');
+  const logTitle = document.getElementById('rollLogTitle');
+  const logStatus = document.getElementById('rollLogStatus');
+  const logFaces = document.getElementById('rollLogFaces');
+  const logCheck = document.getElementById('rollLogCheck');
+  let rollCount = 5;
+  document.getElementById('rollLogToggle').onclick = () => {
+    log.dataset.collapsed = String(log.dataset.collapsed !== 'true');
+    document.getElementById('rollLogToggle').setAttribute('aria-expanded', String(log.dataset.collapsed !== 'true'));
+  };
+  function updateRollLog(round, stage, values = []) {
+    log.hidden = false;
+    logTitle.textContent = `🎲 TU · ROUND ${round}`;
+    const stages = {
+      shake: 'Agitazione dei tuoi dadi…',
+      tumbling: 'Lancio sul tavolo in corso…',
+      landing: 'I dadi stanno terminando la rotazione…',
+      settled: 'Dadi fermi · mano privata',
+    };
+    logStatus.textContent = stages[stage] || 'Preparazione del lancio…';
+    logFaces.replaceChildren();
+    for (let i = 0; i < (values.length || rollCount); i++) {
+      const cell = document.createElement('span');
+      cell.textContent = `D${i + 1}: ${values[i] ?? '?'}`;
+      logFaces.append(cell);
+    }
+    logCheck.textContent = stage === 'settled'
+      ? 'Il risultato deve coincidere con la fila laterale.'
+      : 'Il gioco determina i valori; l’animazione li mostra.';
+  }
   function send(data) {
     const json = JSON.stringify(data);
     if (window.StreetCircleBridge) window.StreetCircleBridge.postMessage(json);
@@ -85,13 +115,20 @@ export function attachBridge({ canvas, ui, hint, setDice, roll }) {
     const other = ended ? data.resolution?.dice?.find(p => p.id === data.resolution.bid.playerId)?.dice || [] : [];
     if (renderedRound !== data.round && data.dice?.length && !animating) {
       renderedRound = data.round; animating = true; canvas.dataset.diceReady = 'false'; setDice([], []);
+      rollCount = Math.min(5, data.dice.length);
+      updateRollLog(data.round, 'shake');
       try {
         // The physical animation must land on the same private, authoritative
         // hand as the rack. An unrelated random 3D throw misleads the player.
         const hand = data.dice.slice(0, 5);
-        const visibleRoll = await roll(hand.length, hand);
-        canvas.dataset.rollConsistent = String(visibleRoll.length === hand.length &&
-          visibleRoll.every((value, index) => value === hand[index]));
+        const visibleRoll = await roll(hand.length, hand, (stage, values) => updateRollLog(data.round, stage, values));
+        const matches = visibleRoll.length === hand.length &&
+          visibleRoll.every((value, index) => value === hand[index]);
+        canvas.dataset.rollConsistent = String(matches);
+        updateRollLog(data.round, 'settled', visibleRoll);
+        logCheck.textContent = matches
+          ? '✓ Facce e fila laterale coincidono.'
+          : '⚠️ Discrepanza rilevata: segnalala.';
       }
       finally {
         animating = false;
