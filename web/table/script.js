@@ -1150,6 +1150,7 @@ function setDieActive(idx, active) {
     d.visible = active;
     d.mesh.visible = active;
     if (!active) {
+        d.scripted = false;
         d.body.position.set(0, -10, 0);
         d.body.velocity.scale(0, d.body.velocity);
         d.body.angularVelocity.scale(0, d.body.angularVelocity);
@@ -1628,7 +1629,7 @@ function updateMuteIcon(btn, vol) {
 
 function isDiceMoving() {
     for (const d of dice) {
-        if (!d.visible) continue;
+        if (!d.visible || d.scripted) continue;
         const b = d.body;
         if (
             b.velocity.lengthSquared() > 0.01 ||
@@ -1657,6 +1658,9 @@ function animate(now) {
 
     for (const d of dice) {
         if (!d.visible) continue;
+        // Scripted authoritative rolls own the mesh transform for their entire
+        // animation. Copying a sleeping physics body here would flash a wrong face.
+        if (d.scripted) continue;
         d.mesh.position.copy(d.body.position);
         d.mesh.quaternion.copy(d.body.quaternion);
     }
@@ -1696,7 +1700,7 @@ world.addEventListener('postStep', () => {
     if (!rollActive) return;
     const eps = 0.1;
     for (const d of dice) {
-        if (!d.visible) continue;
+        if (!d.visible || d.scripted) continue;
         const b = d.body;
         const nx = b.position.x / HOLE_RX;
         const nz = b.position.z / HOLE_RZ;
@@ -1719,7 +1723,7 @@ world.addEventListener('postStep', () => {
         }
     }
     for (const d of dice) {
-        if (!d.visible) continue;
+        if (!d.visible || d.scripted) continue;
         if (d.body.velocity.y > -0.1) {
             playImpactOnce();
             break;
@@ -1759,43 +1763,91 @@ function sampleNearCenterInEllipse(rx, rz, k = 1.8, margin = 0.72) {
     return [Math.cos(ang) * rx * r, Math.sin(ang) * rz * r];
 }
 
-// The server/practice engine owns the hand. Guide the visible dice onto those
-// faces WHILE they are still finishing their roll, instead of snapping their
-// orientation after they have visibly stopped on unrelated random numbers.
-function guidePhysicalLanding(count, values) {
+// The game engine picks secret values BEFORE the animation begins. Each visible
+// die follows a single continuous, predetermined trajectory ending on that
+// exact face. Unlike post-physics correction, no settled die ever changes face.
+function performAuthoritativeRoll(count, values, lingerMs, onProgress) {
+    hideAllPhysical();
     const plans = [];
+    const occupied = [];
     for (let i = 0; i < count; i++) {
-        const value = values[i];
-        const faceIndex = faceNumbers.indexOf(value);
-        if (faceIndex < 0) throw new Error(`Invalid authoritative die: ${value}`);
+        if (!Number.isInteger(values[i]) || values[i] < 1 || values[i] > 6) {
+            return Promise.reject(new Error(`Invalid authoritative die: ${values[i]}`));
+        }
         const die = dice[i];
-        const initial = die.mesh.quaternion.clone();
-        const currentNormal = faceNormals[faceIndex].clone().applyQuaternion(initial);
-        const adjustment = new THREE.Quaternion().setFromUnitVectors(currentNormal, up);
-        const target = adjustment.multiply(initial);
+        setDieActive(i, true);
+        die.scripted = true;
+        die.body.position.set(0, -10, 0);
         die.body.velocity.set(0, 0, 0);
         die.body.angularVelocity.set(0, 0, 0);
         die.body.sleep();
-        plans.push({die, initial, target});
+
+        let endX = 0, endZ = 0;
+        for (let attempt = 0; attempt < 80; attempt++) {
+            [endX, endZ] = sampleNearCenterInEllipse(HOLE_RX, HOLE_RZ, 1.9, 0.7);
+            if (occupied.every(([x, z]) => Math.hypot(endX - x, endZ - z) > DICE_SIZE * 1.55)) break;
+        }
+        occupied.push([endX, endZ]);
+        orientDiceMeshTopValue(die.mesh, values[i]);
+        const target = new THREE.Quaternion()
+            .setFromAxisAngle(up, rand(-Math.PI, Math.PI))
+            .multiply(die.mesh.quaternion);
+        const spinX = new THREE.Quaternion();
+        const spinZ = new THREE.Quaternion();
+        const xTurns = 2 * Math.PI * (2.25 + i * 0.17);
+        const zTurns = 2 * Math.PI * (1.7 + i * 0.13);
+        const startX = endX + rand(-0.7, 0.7);
+        const startZ = endZ + rand(-0.5, 0.5);
+        plans.push({die, endX, endZ, startX, startZ, startY: 2.6 + i * 0.12,
+            target, spinX, spinZ, xTurns, zTurns});
     }
+
     return new Promise(resolve => {
-        const start = performance.now();
+        const started = performance.now();
+        let landingNotified = false;
         const frame = now => {
-            const t = Math.min(1, (now - start) / 620);
-            const smooth = t * t * (3 - 2 * t);
-            for (const {die, initial, target} of plans) {
-                const quaternion = initial.clone().slerp(target, smooth);
-                die.body.quaternion.set(quaternion.x, quaternion.y, quaternion.z, quaternion.w);
-                die.mesh.quaternion.copy(quaternion);
+            const t = Math.min(1, (now - started) / 1450);
+            const fall = Math.min(1, t / 0.65);
+            const fallEase = fall * fall * (3 - 2 * fall);
+            const spinRemaining = Math.pow(1 - t, 2.6);
+            const bounce = Math.max(0, (t - 0.65) / 0.35);
+            const bounceHeight = t < 0.65 ? 0 :
+                0.22 * Math.pow(1 - bounce, 2) * Math.abs(Math.sin(bounce * 3 * Math.PI));
+            for (const plan of plans) {
+                const {die, target, spinX, spinZ} = plan;
+                die.mesh.position.set(
+                    plan.startX + (plan.endX - plan.startX) * fallEase,
+                    plan.startY + (DICE_SIZE / 2 - plan.startY) * fallEase + bounceHeight,
+                    plan.startZ + (plan.endZ - plan.startZ) * fallEase
+                );
+                die.mesh.quaternion.copy(target)
+                    .multiply(spinX.setFromAxisAngle(new THREE.Vector3(1, 0, 0), plan.xTurns * spinRemaining))
+                    .multiply(spinZ.setFromAxisAngle(new THREE.Vector3(0, 0, 1), plan.zTurns * spinRemaining));
             }
-            if (t < 1) requestAnimationFrame(frame);
-            else resolve();
+            if (!landingNotified && t >= 0.65) {
+                landingNotified = true;
+                playImpactOnce();
+                onProgress?.('landing');
+            }
+            if (t < 1) {
+                requestAnimationFrame(frame);
+                return;
+            }
+            const rolled = plans.map(({die}) => readDieTop(die.mesh));
+            onProgress?.('settled', rolled);
+            setTimeout(() => {
+                for (let i = 0; i < count; i++) setDieActive(i, false);
+                resolve(rolled);
+            }, lingerMs);
         };
         requestAnimationFrame(frame);
     });
 }
 
 function performRoll(count, lingerMs = 2000, requiredValues = null, onProgress = null) {
+    if (Array.isArray(requiredValues) && requiredValues.length >= count) {
+        return performAuthoritativeRoll(count, requiredValues, lingerMs, onProgress);
+    }
     hideAllPhysical();
     return new Promise((resolve, reject) => {
         const taken = [];
@@ -1832,13 +1884,8 @@ function performRoll(count, lingerMs = 2000, requiredValues = null, onProgress =
             d.body.wakeUp();
         }
         const rollStarted = performance.now();
-        const guided = Array.isArray(requiredValues) && requiredValues.length >= count;
         const finish = async () => {
             try {
-                if (guided) {
-                    onProgress?.('landing');
-                    await guidePhysicalLanding(count, requiredValues);
-                }
                 const vals = dice.slice(0, count).map((die) => readDieTop(die.mesh));
                 onProgress?.('settled', vals);
                 setTimeout(() => {
@@ -1852,17 +1899,6 @@ function performRoll(count, lingerMs = 2000, requiredValues = null, onProgress =
         };
         const check = () => {
             const elapsed = performance.now() - rollStarted;
-            if (guided) {
-                // Start the continuous landing movement during the throw, once
-                // the dice have reached the table, BEFORE they settle on a face.
-                const nearTable = dice.slice(0, count).every(die => die.body.position.y < 0.7);
-                if (elapsed < 600 || (!nearTable && elapsed < 1500)) {
-                    requestAnimationFrame(check);
-                    return;
-                }
-                void finish();
-                return;
-            }
             let moving = false;
             for (let i = 0; i < count; i++) {
                 const b = dice[i].body;
