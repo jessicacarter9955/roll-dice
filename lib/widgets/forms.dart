@@ -263,6 +263,42 @@ class _ServiceFormState extends State<ServiceForm> {
   late final text = TextEditingController(text: widget.app.api);
   String? error;
   bool busy = false;
+
+  Future<void> recheck() async {
+    setState(() { busy = true; error = null; });
+    try {
+      final health = await widget.app.request('/health') as Map;
+      if (health['ok'] != true) throw Exception('The game API did not pass its health check.');
+      widget.app.config = Map<String, dynamic>.from(await widget.app.request('/config') as Map);
+      widget.app.server = true;
+    } catch (e) {
+      widget.app.server = false;
+      error = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      widget.app.notifyListeners();
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Widget statusLine(String label, String status, bool? ready) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 5),
+    child: Row(children: [
+      Icon(ready == null ? Icons.help_outline : ready ? Icons.check_circle_outline : Icons.error_outline,
+        size: 17, color: ready == null ? muted : ready ? green : const Color(0xfff0aaa3)),
+      const SizedBox(width: 9),
+      Expanded(child: Text('$label: $status', style: const TextStyle(fontSize: 12))),
+    ]),
+  );
+
+  String get safeDiagnostics => [
+    'Street Circle connection diagnostics',
+    'Game API: ${widget.app.server ? 'reachable on last check' : 'not connected'}',
+    'SMS provider configured: ${widget.app.server && widget.app.config['sms'] == true}',
+    'Live video provider configured: ${widget.app.server && widget.app.config['video'] == true}',
+    'Realtime socket: ${widget.app.user == null ? 'not tested (sign in first)' : widget.app.socketReady ? 'connected' : 'disconnected'}',
+    'Note: configured providers have not necessarily passed real SMS/video delivery tests.',
+  ].join('\n');
+
   @override
   void dispose() {
     text.dispose();
@@ -311,6 +347,26 @@ class _ServiceFormState extends State<ServiceForm> {
               },
         child: Text(busy ? 'Connecting…' : 'Connect service'),
       ),
+      const SizedBox(height: 24),
+      const Eyebrow('SERVICE DIAGNOSTICS'),
+      const SizedBox(height: 8),
+      statusLine('Game API', widget.app.server ? 'last check succeeded' : 'not connected', widget.app.server),
+      statusLine('SMS', widget.app.server && widget.app.config['sms'] == true ? 'configured, delivery untested' : 'not configured', widget.app.server && widget.app.config['sms'] == true),
+      statusLine('Live video', widget.app.server && widget.app.config['video'] == true ? 'configured, calls untested' : 'not configured', widget.app.server && widget.app.config['video'] == true),
+      statusLine('Realtime', widget.app.user == null ? 'sign in to test' : widget.app.socketReady ? 'connected' : 'not connected', widget.app.user == null ? null : widget.app.socketReady),
+      const SizedBox(height: 8),
+      OutlinedButton.icon(
+        onPressed: busy ? null : recheck,
+        icon: const Icon(Icons.refresh, size: 17),
+        label: const Text('Recheck API and providers'),
+      ),
+      TextButton.icon(
+        onPressed: () => Clipboard.setData(ClipboardData(text: safeDiagnostics)),
+        icon: const Icon(Icons.copy_all_outlined, size: 16),
+        label: const Text('Copy safe diagnostics'),
+      ),
+      const Text('Provider configuration alone does not confirm real SMS delivery or a working video call.',
+        style: TextStyle(color: muted, fontSize: 11, height: 1.5)),
       if (error != null)
         Text(
           error!,
