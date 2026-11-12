@@ -10,6 +10,9 @@ async function role(name,viewport,widthLabel){
  const ctx=await browser.newContext({viewport,deviceScaleFactor:1});
  const page=await ctx.newPage();
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ page.on('requestfailed',req=>console.log('Browser request failed',name,req.method(),req.url(),req.failure()?.errorText));
+ page.on('response',res=>{if(res.url().includes('market32-v2'))console.log('API response',name,res.request().method(),res.status(),res.url(),JSON.stringify(res.headers()).slice(0,400))});
+ page.on('console',m=>{if(m.type()==='error')console.log('Console error',name,m.text().slice(0,400))});
  await page.goto(web,{waitUntil:'domcontentloaded',timeout:60000});
  await page.waitForSelector('#authForm',{timeout:30000});
  await page.locator('#authUser').fill(name);
