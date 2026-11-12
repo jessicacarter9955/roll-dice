@@ -1,0 +1,27 @@
+name: Market32 Web smoke tests
+on:
+  push:
+    branches: [main, feat/market32-complete-dashboard-20261112]
+    paths:
+      - web/market32/**
+      - scripts/market32-smoke.mjs
+      - .github/workflows/market32-smoke.yml
+  pull_request:
+    paths:
+      - web/market32/**
+      - scripts/market32-smoke.mjs
+      - .github/workflows/market32-smoke.yml
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check browser code syntax
+        run: node --check web/market32/full.js
+      - name: Verify deployed Supabase API and role separation
+        run: node scripts/market32-smoke.mjs
