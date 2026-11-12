@@ -12,18 +12,18 @@ try{for(const v of [{name:'desktop',width:1440,height:900},{name:'mobile',width:
  await page.getByText('Overview dashboard').waitFor({timeout:40000});
  await page.locator('.bg-hero').first().waitFor({timeout:10000});
  assert.ok(await page.getByText('Pending summary').count()>0,'summary visible');
- await page.screenshot({path:'market32-shadcn-screens/'+v.name+'-dashboard.png',fullPage:true});
- if(v.name==='mobile')await page.locator('header').getByRole('button',{name:''}).first().click();
- await page.getByRole('button',{name:'Events',exact:true}).click();
+ await page.screenshot({path:'market32-shadcn-screens/'+v.name+'-dashboard.png',fullPage:true});if(v.name==='mobile'){const sw=await page.evaluate(()=>document.documentElement.scrollWidth);assert.ok(sw<=v.width+2,'dashboard horizontally overflows: '+sw+'px vs '+v.width+'px')}
+ if(v.name==='mobile')await page.locator('header button').first().click();
+ await page.locator('aside').getByRole('button',{name:'Events',exact:true}).click();
  await page.getByText('Explore events').waitFor({timeout:20000});
  await page.getByText('Upcoming markets').waitFor({timeout:15000});
- assert.ok(await page.locator('.market-card').count()>=0,'events rendered');
- await page.screenshot({path:'market32-shadcn-screens/'+v.name+'-events.png',fullPage:true});
- if(v.name==='mobile')await page.locator('header').getByRole('button',{name:''}).first().click();
- await page.getByRole('button',{name:'Marketplace',exact:true}).click();
+ assert.ok(await page.getByRole('button',{name:/View stalls/}).count()>=8,'sample markets rendered');
+ await page.screenshot({path:'market32-shadcn-screens/'+v.name+'-events.png',fullPage:true});if(v.name==='mobile'){const sw=await page.evaluate(()=>document.documentElement.scrollWidth);assert.ok(sw<=v.width+2,'events horizontally overflow: '+sw+'px')}
+ if(v.name==='mobile')await page.locator('header button').first().click();
+ await page.locator('aside').getByRole('button',{name:'Marketplace',exact:true}).click();
  await page.getByText('Independent marketplace').waitFor({timeout:20000});
- await page.getByText('Stock', {exact:false}).count().catch(()=>{});
- await page.screenshot({path:'market32-shadcn-screens/'+v.name+'-marketplace.png',fullPage:true});
+ await page.locator('img[alt]').first().waitFor({timeout:20000});assert.ok(await page.locator('img[alt]').count()>=8,'sample marketplace products rendered');
+ await page.screenshot({path:'market32-shadcn-screens/'+v.name+'-marketplace.png',fullPage:true});if(v.name==='mobile'){const sw=await page.evaluate(()=>document.documentElement.scrollWidth);assert.ok(sw<=v.width+2,'marketplace horizontally overflows: '+sw+'px')}
  assert.deepEqual(errors,[], 'No unhandled browser errors');
  await ctx.close();passed++;
  }console.log('Market32 Shadcn browser QA passed: '+passed+' viewports');
