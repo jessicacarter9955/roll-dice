@@ -15,7 +15,10 @@ async function role(name,viewport,widthLabel){
  await page.locator('#authUser').fill(name);
  await page.locator('#authPass').fill('market32demo!');
  await page.locator('#authForm button[type=submit]').click();
- await page.waitForSelector('.sidebar .navlink[data-tab=dashboard]',{timeout:60000});
+ await page.waitForTimeout(2000);
+ console.log('Browser login diagnostic',name,{errors:errors.slice(0,5),errText:await page.locator('.errorline').allTextContents(),body:(await page.locator('body').innerText()).slice(0,500)});
+ await page.screenshot({path:OUT+'/'+name+'-'+widthLabel+'-prelogin-check.png',fullPage:false});
+ await page.waitForSelector('.sidebar .navlink[data-tab=dashboard]',{timeout:18000});
  await page.waitForSelector('.eventbanner',{timeout:30000});
  await page.screenshot({path:OUT+'/'+name+'-'+widthLabel+'-dashboard.png',fullPage:true,animations:'disabled'});
  if(name==='organiser'){
