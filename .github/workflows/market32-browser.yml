@@ -21,8 +21,8 @@ jobs:
         run: |
           npm install --no-save --no-package-lock --prefix /tmp/market32-qa playwright@1.58.2
           cd /tmp/market32-qa && npx playwright install --with-deps chromium
-          mkdir -p node_modules
-          ln -s /tmp/market32-qa/node_modules/playwright node_modules/playwright
+          mkdir -p web/market32/node_modules
+          ln -s /tmp/market32-qa/node_modules/playwright web/market32/node_modules/playwright
       - name: Start Web server
         run: |
           python3 -m http.server 8090 --bind 127.0.0.1 -d web/market32 >/tmp/market32-http.log 2>&1 &
