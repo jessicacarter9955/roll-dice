@@ -38,12 +38,14 @@ async function role(name,viewport,widthLabel){
    await page.screenshot({path:OUT+'/seller-listings.png',fullPage:true,animations:'disabled'});
  }
  if(name==='buyer'){
+   if(widthLabel==='mobile')await page.locator('button[data-act=menu]').click();
    await page.locator('button.navlink[data-tab=shop]').click();
    await page.waitForSelector('.product-card',{timeout:30000});
-   await page.screenshot({path:OUT+'/buyer-marketplace.png',fullPage:true,animations:'disabled'});
+   await page.screenshot({path:OUT+'/buyer-'+widthLabel+'-marketplace.png',fullPage:true,animations:'disabled'});
+   if(widthLabel==='mobile')await page.locator('button[data-act=menu]').click();
    await page.locator('button.navlink[data-tab=explore]').click();
    await page.waitForSelector('.market-card',{timeout:30000});
-   await page.screenshot({path:OUT+'/buyer-map.png',fullPage:true,animations:'disabled'});
+   await page.screenshot({path:OUT+'/buyer-'+widthLabel+'-map.png',fullPage:true,animations:'disabled'});
  }
  if(name==='admin'){
    await page.locator('button.navlink[data-tab=users]').click();
