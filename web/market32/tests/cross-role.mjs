@@ -75,4 +75,8 @@ assert.equal(finalProducts.find(p=>p.id===created.id)?.stock,2);
 const afterRefund=(await req('/loyalty',{token:t.buyer})).data.points;
 assert.equal(afterRefund,preRefund-25);
 console.log('✅ Admin refund recorded: product stock restored and earned buyer points reversed');
+await req('/seller/products/'+created.id,{token:t.seller,method:'DELETE'});
+const hidden=(await req('/products')).data.products;
+assert.ok(!hidden.some(p=>p.id===created.id));
+console.log('✅ E2E-only listing archived after test, keeping the public marketplace clean');
 console.log('All six Market32 staging cross-role tests passed. ZERO REAL CHARGES.');
