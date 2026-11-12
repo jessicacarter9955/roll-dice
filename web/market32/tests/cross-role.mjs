@@ -1,0 +1,78 @@
+import assert from 'node:assert/strict';
+const API='https://ygrfqehiwhmkfczosuoo.supabase.co/functions/v1/market32-v2/api';
+const pass='market32demo!';
+const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function req(path,{method='GET',token,body,allowFailure=false}={}){
+ const headers={accept:'application/json'};if(token)headers.authorization='Bearer '+token;
+ if(body)headers['content-type']='application/json';
+ const res=await fetch(API+path,{method,headers,body:body?JSON.stringify(body):undefined});
+ const d=await res.json().catch(()=>({error:'non-JSON response'}));
+ if(!allowFailure)assert.ok(res.ok,path+' returned HTTP '+res.status+': '+JSON.stringify(d).slice(0,250));
+ return {status:res.status,data:d,ok:res.ok};
+}
+async function login(name){return (await req('/auth/login',{method:'POST',body:{username:name,password:pass}})).data.token}
+const t={};
+for(const role of ['buyer','seller','organiser','admin'])t[role]=await login(role);
+const suffix=Date.now().toString(36)+Math.floor(Math.random()*10000);
+const market=(await req('/markets')).data.markets.find(m=>m.id==='dublin');
+assert.ok(market,'Dublin market is required for E2E fixture');
+console.log('TEST 1 — Seller publishes an item and buyer discovers it');
+const created=(await req('/seller/products',{token:t.seller,method:'POST',body:{title:'E2E sample craft '+suffix,category:'Crafts',description:'Sandbox listing for test flows, not for real purchase',price_cents:2500,stock:2,market_id:market.id,photo_url:'https://images.unsplash.com/photo-1490312278390-ab64016e0aa9?w=500'}})).data.product;
+const products=(await req('/products')).data.products;
+assert.ok(products.some(p=>p.id===created.id),'New product must appear to buyer');
+console.log('✅ Seller listing appears in public marketplace:',created.title);
+console.log('TEST 2 — Buyer messages seller and seller sees it');
+const msg='Hello, is this sample item available? '+suffix;
+await req('/messages',{token:t.buyer,method:'POST',body:{recipient_id:created.seller_id,product_id:created.id,body:msg}});
+const inbox=(await req('/messages',{token:t.seller})).data.messages;
+assert.ok(inbox.some(m=>m.body===msg));
+console.log('✅ Buyer message appears in seller inbox');
+console.log('TEST 3 — Seller applies for event and organiser approves');
+const application=(await req('/applications',{token:t.seller,method:'POST',body:{market_id:market.id,category:'Handmade crafts',note:'E2E staging request '+suffix}})).data.application;
+const organiserApps=(await req('/applications',{token:t.organiser})).data.applications;
+assert.ok(organiserApps.some(x=>x.id===application.id),'Organiser must see seller application');
+await req('/applications/'+application.id,{token:t.organiser,method:'PATCH',body:{status:'approved'}});
+const sellerApps=(await req('/applications',{token:t.seller})).data.applications;
+assert.equal(sellerApps.find(x=>x.id===application.id)?.status,'approved');
+console.log('✅ Approved application reflected in seller UI API');
+console.log('TEST 4 — Buyer orders, demo-pays; seller and admin see result');
+const order=(await req('/orders',{token:t.buyer,method:'POST',body:{product_id:created.id,quantity:1,points:0}})).data.order;
+await req('/orders/'+order.id+'/demo-pay',{token:t.buyer,method:'POST'});
+const buyerOrder=(await req('/orders',{token:t.buyer})).data.orders.find(x=>x.id===order.id);
+const sellerOrder=(await req('/orders',{token:t.seller})).data.orders.find(x=>x.id===order.id);
+const adminPayment=(await req('/admin/payments',{token:t.admin})).data.payments.find(x=>x.id===order.id);
+assert.equal(buyerOrder?.status,'demo_paid');assert.equal(sellerOrder?.status,'demo_paid');assert.equal(adminPayment?.status,'demo_paid');
+const buyerLoyalty=(await req('/loyalty',{token:t.buyer})).data.points;
+const sellerLoyalty=(await req('/loyalty',{token:t.seller})).data.points;
+assert.ok(buyerLoyalty>=25&&sellerLoyalty>=25);
+console.log('✅ DEMO payment (no money moved) appears to buyer, seller, admin; both gain loyalty points');
+console.log('TEST 5 — Double booking prevention, QR and organiser check-in');
+const mk=(await req('/markets/'+market.id)).data;
+const stall=mk.stalls.find(x=>!x.taken&&!x.disabled);assert.ok(stall,'Need one free stall for E2E');
+const second=(await req('/auth/register',{method:'POST',body:{username:'e2e'+suffix,email:'e2e-'+suffix+'@market32.test',password:'SafeDemoPass123!',full_name:'E2E Guest',county:'Dublin'}})).data;
+const simultaneous=await Promise.all([
+ req('/bookings/hold',{method:'POST',token:t.buyer,body:{stall_id:stall.id},allowFailure:true}),
+ req('/bookings/hold',{method:'POST',token:second.token,body:{stall_id:stall.id},allowFailure:true})
+]);
+const wins=simultaneous.filter(x=>x.ok),failures=simultaneous.filter(x=>!x.ok);
+assert.equal(wins.length,1);assert.equal(failures.length,1);
+const ownerToken=simultaneous[0].ok?t.buyer:second.token;
+const booking=wins[0].data.booking;
+await req('/bookings/'+booking.id+'/demo-pay',{token:ownerToken,method:'POST'});
+const ticket=(await req('/tickets/booking/'+booking.id,{token:ownerToken})).data;
+assert.ok(ticket.token.startsWith('M32:booking:'));
+const scanned=(await req('/tickets/scan',{token:t.organiser,method:'POST',body:{token:ticket.token}})).data;
+assert.equal(scanned.valid,true);
+const replay=await req('/tickets/scan',{token:t.organiser,method:'POST',body:{token:ticket.token},allowFailure:true});
+assert.equal(replay.ok,false);
+console.log('✅ Concurrent hold: exactly one winner. Single-use QR scan; replay rejected.');
+console.log('TEST 6 — Admin demo refund restores stock and reverses rewards');
+const preRefund=(await req('/loyalty',{token:t.buyer})).data.points;
+const refund=(await req('/admin/refunds/order/'+order.id,{token:t.admin,method:'POST'})).data;
+assert.equal(refund.result.status,'refunded');
+const finalProducts=(await req('/products')).data.products;
+assert.equal(finalProducts.find(p=>p.id===created.id)?.stock,2);
+const afterRefund=(await req('/loyalty',{token:t.buyer})).data.points;
+assert.equal(afterRefund,preRefund-25);
+console.log('✅ Admin refund recorded: product stock restored and earned buyer points reversed');
+console.log('All six Market32 staging cross-role tests passed. ZERO REAL CHARGES.');
