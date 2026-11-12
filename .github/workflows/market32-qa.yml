@@ -1,0 +1,30 @@
+name: Market32 Web + API checks
+on:
+  push:
+    branches: [feat/market32-full-platform-20261112, main]
+    paths:
+      - 'web/market32/**'
+      - '.github/workflows/market32-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  market32-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check frontend and smoke scripts
+        run: |
+          node --check web/market32/app.js
+          node --check web/market32/tests/smoke.mjs
+          test -s web/market32/index.html
+          test -s web/market32/app.css
+      - name: Verify Supabase API and four roles
+        run: node web/market32/tests/smoke.mjs
+      - name: Verify cross-role writes, bookings, demo settlements, QR and refund
+        if: github.ref == 'refs/heads/feat/market32-full-platform-20261112'
+        run: node web/market32/tests/cross-role.mjs
