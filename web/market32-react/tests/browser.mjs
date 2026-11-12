@@ -12,10 +12,11 @@ try{for(const v of [{name:'desktop',width:1440,height:900},{name:'mobile',width:
  await page.getByText('Overview dashboard').waitFor({timeout:40000});
  await page.locator('.bg-hero').first().waitFor({timeout:10000});
  assert.ok(await page.getByText('Pending summary').count()>0,'summary visible');
+ const bounds=await page.locator('.app-bg').first().boundingBox();assert.ok(bounds&&Math.abs(bounds.x)<=2&&bounds.width>=v.width-2,'Full-bleed dashboard expected; got '+JSON.stringify(bounds));const fonts=await page.evaluate(()=>({body:getComputedStyle(document.body).fontFamily,heading:getComputedStyle(document.querySelector('h1')).fontFamily}));assert.match(fonts.body,/Plus Jakarta Sans/);assert.match(fonts.heading,/Sora/);
  await page.screenshot({path:'market32-shadcn-screens/'+v.name+'-dashboard.png',fullPage:true});if(v.name==='mobile'){const sw=await page.evaluate(()=>document.documentElement.scrollWidth);assert.ok(sw<=v.width+2,'dashboard horizontally overflows: '+sw+'px vs '+v.width+'px')}
  if(v.name==='mobile')await page.locator('header button').first().click();
  await page.locator('aside').getByRole('button',{name:'Events',exact:true}).click();
- await page.getByText('Explore events').waitFor({timeout:20000});
+ await page.getByText('Explore events').waitFor({timeout:20000});const editorial=await page.locator('.market-editorial').evaluate(n=>getComputedStyle(n).backgroundImage);assert.ok(editorial.includes('unsplash'),'Events hero displays editorial photography');
  await page.getByText('Upcoming markets').waitFor({timeout:15000});
  assert.ok(await page.getByRole('button',{name:/View stalls/}).count()>=8,'sample markets rendered');
  await page.screenshot({path:'market32-shadcn-screens/'+v.name+'-events.png',fullPage:true});if(v.name==='mobile'){const sw=await page.evaluate(()=>document.documentElement.scrollWidth);assert.ok(sw<=v.width+2,'events horizontally overflow: '+sw+'px')}
