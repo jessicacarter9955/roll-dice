@@ -46,6 +46,13 @@ jobs:
           test -s web/market32-react/dist/index.html
           mkdir -p build/web/market32
           cp -R web/market32-react/dist/. build/web/market32/
+      - name: Publish independently tested Market32 complete staging app
+        run: |
+          mkdir -p build/web/market32-complete
+          cp web/market32/index.html web/market32/app.css web/market32/app.js build/web/market32-complete/
+          test -s build/web/market32-complete/index.html
+          test -s build/web/market32-complete/app.js
+          test -s build/web/market32-complete/app.css
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
