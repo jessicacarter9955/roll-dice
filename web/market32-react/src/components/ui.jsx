@@ -11,7 +11,7 @@ const variants=cva("inline-flex items-center justify-center gap-2 whitespace-now
  variants:{variant:{default:"bg-brand-600 text-white hover:bg-brand-700 shadow-sm",secondary:"bg-slate-100 text-slate-700 hover:bg-slate-200",outline:"border border-slate-200 bg-white text-slate-700 hover:bg-slate-50",ghost:"text-slate-600 hover:bg-slate-100",destructive:"bg-rose-50 text-rose-600 hover:bg-rose-100",link:"text-brand-700 underline-offset-2 hover:underline"},
  size:{default:"h-10 px-4 py-2",sm:"h-8 px-3 text-xs",lg:"h-11 px-5",icon:"h-9 w-9"}},defaultVariants:{variant:"default",size:"default"}});
 export function Button({variant,size,className="",asChild=false,type="button",...props}){const Tag=asChild?Slot:'button';return <Tag type={type} className={cn(variants({variant,size}),className)} {...props}/>};
-export const Card=({className="",...props})=><div className={cn("rounded-2xl border border-slate-200/80 bg-white shadow-card",className)} {...props}/>;
+export const Card=({className="",...props})=><div className={cn("min-w-0 rounded-2xl border border-slate-200/80 bg-white shadow-card",className)} {...props}/>;
 export const CardHeader=({className="",...props})=><div className={cn("px-5 pt-5 pb-3",className)} {...props}/>;
 export const CardTitle=({className="",...props})=><h3 className={cn("text-[15px] font-extrabold tracking-tight text-slate-800",className)} {...props}/>;
 export const CardContent=({className="",...props})=><div className={cn("px-5 pb-5",className)} {...props}/>;
