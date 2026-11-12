@@ -150,7 +150,7 @@ function inbox(){
 function payments(){
  if(me().role==="admin"){
  const rows=S.payments||[];
- return heading("Payments & Refunds","All staging transactions. Stripe is disabled until test secrets are configured.")+'<div class="notice">Sandbox settlements are marked DEMO PAID and do not transfer money. Only Stripe TEST keys will enable real test checkout; no live keys are accepted.</div><section class="panel">'+table(["Kind","Reference","Amount","Status","Date","Action"],rows.length?rows.map(p=>'<tr><td class="tdtitle">'+esc(p.kind)+'</td><td>'+esc(p.id.slice(0,8))+'</td><td>'+euro(p.amount_cents)+'</td><td>'+badge(p.status)+'</td><td>'+dt(p.created_at)+'</td><td>'+(['demo_paid','paid'].includes(p.status)?'<button class="btn sm red" data-act="admin-refund" data-kind="'+p.kind+'" data-id="'+p.id+'">Refund</button>':"—")+'</td></tr>'):['<tr><td colspan="6">'+noData("No transactions")+'</td></tr>'])+'</section>';
+ return heading("Payments & Refunds","All staging transactions. Stripe is disabled until test secrets are configured.")+'<div class="notice">Sandbox settlements are marked DEMO PAID and do not transfer money. Only Stripe TEST keys will enable real test checkout; no live keys are accepted.</div><section class="panel">'+table(["Kind","Reference","Amount","Status","Date","Action"],rows.length?rows.map(p=>'<tr><td class="tdtitle">'+esc(p.kind)+'</td><td>'+esc(p.id.slice(0,8))+'</td><td>'+euro(p.amount_cents)+'</td><td>'+badge(p.status)+'</td><td>'+dt(p.created_at)+'</td><td>'+(['demo_paid','paid'].includes(p.status)?'<button class="btn sm red" data-act="admin-refund" data-kind="'+p.kind+'" data-id="'+p.id+'">Refund</button>':"—")+'</td></tr>'):['<tr><td colspan="6">'+noData("No transactions")+'</td></tr>'])+'</section><section class="panel" style="margin-top:17px"><div class="panelhead"><h3>Loyalty Audit</h3><button class="btn sm secondary" data-act="loyalty-audit">View balances & transactions</button></div><p class="subtle" style="padding:0 22px 15px">Review points earned, redeemed and reversed by every account.</p></section>';
  }
  return heading("Payments & Order History","Review your transactions and sales.")+orders();
 }
@@ -244,7 +244,7 @@ async function perform(action,node){
  case"logout":S.me=null;S.token="";sessionStorage.removeItem("m32v2_token");S.tab="dashboard";render();break;
  case"auth-switch":S.register=!S.register;S.loginErr="";render();break;
  case"demo-role":$("#authUser").value=node.dataset.role;$("#authPass").value=demoPassword;$("#authPass").focus();break;
- case"close-modal":if(node===event.target||node.closest(".roundicon"))closeModal();break;
+ case"close-modal":closeModal();break;
  case"refresh":await refreshTab();toast("Data refreshed from Supabase");break;
  case"open-market":closeModal();await openMarket(id);break;
  case"select-stall":if(S.editLayout)break;S.selectedStall=id;render();break;
@@ -255,7 +255,7 @@ async function perform(action,node){
  case"demo-pay":await fulfill(kind,id,"demo");break;
  case"stripe-pay":await fulfill(kind,id,"stripe");break;
  case"cancel":{if(!confirm("Cancel this unpaid or sandbox reservation?"))break;await api("/"+(kind==="booking"?"bookings":kind==="order"?"orders":"entries")+"/"+id+"/cancel",{method:"POST"});toast("Cancellation saved");await refreshTab();break;}
- case"buy-entry":{const r=await api("/entries",{method:"POST",body:{market_id:id,points:0}});if(r.entry.status==="paid"){toast("Free entry confirmed");await page("bookings")}else paymentModal("entry",r.entry);break;}
+ case"buy-entry":{const m=S.markets.find(x=>x.id===id),points=await api("/loyalty");modal("Market Entry · "+esc(m?.title||""),'<form class="formgrid" data-form="entry" data-id="'+esc(id)+'"><div class="wide summaryline"><span>Entry fee</span><b>'+euro(m?.entry_fee_cents||0)+'</b></div><label class="wide">Use loyalty points (available '+points.points+')<input type="number" name="points" value="0" min="0" max="'+Math.min(points.points,m?.entry_fee_cents||0)+'"></label><div class="wide notice">1 point = €0.01. Test checkout or demo settlement follows; no real money is charged in demo.</div><button class="btn wide">Reserve Entry Ticket</button></form>');break;}
  case"ticket":ticketModal(await api("/tickets/"+kind+"/"+id));break;
  case"new-market":marketForm();break;
  case"edit-market":marketForm(S.markets.find(x=>x.id===id));break;
@@ -271,6 +271,7 @@ async function perform(action,node){
  case"chat-product":S.activeChat=node.dataset.seller;modal("Message Seller",'<form data-form="contact" class="formgrid"><input type="hidden" name="recipient_id" value="'+esc(node.dataset.seller)+'"><input type="hidden" name="product_id" value="'+id+'"><label class="wide">Message<textarea name="body" required maxlength="2000" placeholder="Hi! Is this item still available?"></textarea></label><button class="btn wide">Send Message</button></form>');break;
  case"open-chat":S.activeChat=id;render();break;
  case"admin-user":adminUserForm(S.users.find(x=>x.id===id));break;
+ case"loyalty-audit":{const report=await api("/admin/loyalty");modal("Platform Loyalty Audit",'<div class="subtle">Total ledger records: '+report.ledger.length+'</div>'+table(["User","Reason","Points","Date"],report.ledger.slice(0,80).map(x=>'<tr><td>'+esc(x.user_name)+'</td><td>'+esc(x.reason)+'</td><td><b>'+(x.delta>=0?"+":"")+x.delta+'</b></td><td>'+dt(x.created_at)+'</td></tr>')));break;}
  case"admin-refund":if(confirm("Refund this "+kind+" transaction? In Stripe TEST mode this may issue a TEST refund.")){await api("/admin/refunds/"+kind+"/"+id,{method:"POST"});toast("Refund processed");await refreshTab()}break;
  case"become-seller":{const r=await api("/me/become-seller",{method:"POST"});S.me=r.user;toast("Seller tools enabled");await page("seller");break;}
  case"open-scanner":await scanner();break;
@@ -299,7 +300,7 @@ function attachDrag(){
   });
  });
 }
-document.addEventListener("click",e=>{const a=e.target.closest("[data-act]");if(a){if(a.dataset.act==="close-modal"&&a.dataset.noClose)return;perform(a.dataset.act,a)}});
+document.addEventListener("click",e=>{const a=e.target.closest("[data-act]");if(a){if(a.dataset.act==="close-modal"&&e.target!==a&&!e.target.closest("button[data-act=close-modal]"))return;perform(a.dataset.act,a)}});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&S.modal)closeModal()});
 document.addEventListener("change",e=>{if(e.target.id==="countyFilter"){S.county=e.target.value;render()}});
 document.addEventListener("input",e=>{if(e.target.id==="marketFilter"){S.q=e.target.value;const pos=e.target.selectionStart;render();const el=$("#marketFilter");if(el){el.focus();el.setSelectionRange(pos,pos)}}else if(e.target.id==="productFilter"){S.shopq=e.target.value;const pos=e.target.selectionStart;render();const el=$("#productFilter");if(el){el.focus();el.setSelectionRange(pos,pos)}}});
@@ -313,6 +314,7 @@ document.addEventListener("submit",async e=>{
  else if(type==="stall"){const d={code:b.code,price_cents:Math.round(Number(b.price_eur)*100),x:n(b.x),y:n(b.y),w:n(b.w),h:n(b.h)};if(f.dataset.id){d.disabled=f.querySelector('[name="disabled"]')?.checked||false;await api("/organiser/stalls/"+f.dataset.id,{method:"PATCH",body:d})}else await api("/organiser/markets/"+S.viewMarket+"/stalls",{method:"POST",body:d});toast("Stall layout saved");closeModal();await openMarket(S.viewMarket)}
  else if(type==="application"){await api("/applications",{method:"POST",body:b});toast("Stall application submitted");closeModal();await page("applications")}
  else if(type==="order"){const r=await api("/orders",{method:"POST",body:{product_id:f.dataset.id,quantity:Number(b.quantity),points:Number(b.points)}});toast("Order created · stock reserved");closeModal();paymentModal("order",r.order)}
+ else if(type==="entry"){const r=await api("/entries",{method:"POST",body:{market_id:f.dataset.id,points:Number(b.points)}});closeModal();if(r.entry.status==="paid"){toast("Free entry ticket created");await page("bookings")}else paymentModal("entry",r.entry)}
  else if(type==="message"||type==="contact"){await api("/messages",{method:"POST",body:b});toast("Message delivered");closeModal();await page("inbox")}
  else if(type==="profile"){const r=await api("/me",{method:"PATCH",body:b});S.me=r.user;toast("Profile saved");await page("profile")}
  else if(type==="admin-user"){await api("/admin/users/"+f.dataset.id,{method:"PATCH",body:{role:b.role,is_active:!!f.querySelector('[name="is_active"]')?.checked}});toast("Account permissions updated");closeModal();await page("users")}
