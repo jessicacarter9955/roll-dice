@@ -38,7 +38,7 @@ async function bootApp(){if(!S.role){const x=await run(()=>api("me"));if(!x){log
 function keyShortcut(e){if((e.ctrlKey||e.metaKey)&&e.key==="/"){e.preventDefault();el("global-search")?.focus()}}
 function shellAction(key){if(key==="logout")logout();if(key==="theme"){S.dark=!S.dark;localStorage.setItem("m32_dark",S.dark?"1":"0");document.querySelector(".shell")?.classList.toggle("dark",S.dark)}if(key==="menu")el("sidebar")?.classList.toggle("open")}
 function heading(title,sub,actions){return '<div class="headline"><div><h1>'+E(title)+'</h1><p>'+E(sub||"")+'</p></div>'+(actions||'<div class="sample-label">Sample environment</div>')+'</div>'}
-function button(action,label,cls,attrs){return '<button class="'+(cls||"secondary")+'" data-action="'+E(action)+'" '+(attrs||"")+'>'+label+'</button>'}
+function button(action,label,cls,attrs){return '<button type="button" class="'+(cls||"secondary")+'" data-action="'+E(action)+'" '+(attrs||"")+'>'+label+'</button>'}
 function notice(msg,good){return '<div class="notice'+(good?" good":"")+'">'+msg+'</div>'}
 function card(title,body){return '<section class="panel"><div class="panel-head"><h2>'+E(title)+'</h2></div>'+body+'</section>'}
 function panelTable(headers,rows){return '<div class="table-scroll"><table class="data-table"><thead><tr>'+headers.map(h=>'<th>'+E(h)+'</th>').join("")+'</tr></thead><tbody>'+rows.join("")+'</tbody></table></div>'}
