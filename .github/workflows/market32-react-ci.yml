@@ -1,0 +1,35 @@
+name: Market32 React Build
+on:
+  push:
+    branches: [feat/market32-shadcn-react-20261112]
+    paths:
+      - 'web/market32-react/**'
+      - '.github/workflows/market32-react-ci.yml'
+  pull_request:
+    paths:
+      - 'web/market32-react/**'
+      - '.github/workflows/market32-react-ci.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web/market32-react
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Run source-contract tests
+        run: npm test
+      - name: Build production React site
+        run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: market32-react-dist
+          path: web/market32-react/dist

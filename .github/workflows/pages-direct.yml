@@ -32,6 +32,20 @@ jobs:
       - run: flutter test
       - name: Build site with bundled table assets
         run: flutter build web --release --no-web-resources-cdn --base-href /roll-dice/ --dart-define=API_URL="${{ vars.API_URL }}"
+      - name: Set up Node for Market32 React
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build Market32 shadcn-admin React frontend
+        run: |
+          cd web/market32-react
+          npm install --no-audit --no-fund
+          MARKET32_BASE=/roll-dice/market32/ npm run build
+      - name: Publish React frontend alongside Roll Dice without changing game assets
+        run: |
+          test -s web/market32-react/dist/index.html
+          mkdir -p build/web/market32
+          cp -R web/market32-react/dist/. build/web/market32/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

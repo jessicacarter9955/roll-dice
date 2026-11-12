@@ -1,0 +1,37 @@
+name: Market32 React Browser QA
+on:
+  push:
+    branches: [feat/market32-shadcn-react-20261112]
+    paths:
+      - web/market32-react/**
+      - .github/workflows/market32-react-browser.yml
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web/market32-react
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - run: npm install --no-save playwright@1.56.1
+      - run: npx playwright install chromium --with-deps
+      - name: Start production preview server
+        run: |
+          (npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/market32-shadcn.log 2>&1 &)
+          for i in 1 2 3 4 5 6 7 8 9 10; do curl -fsS http://127.0.0.1:4173/ >/dev/null && break || sleep 1; done
+      - name: Verify four-page buyer and organiser navigation on desktop and phone
+        run: node tests/browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: market32-shadcn-screenshots
+          path: web/market32-react/market32-shadcn-screens
+          if-no-files-found: ignore

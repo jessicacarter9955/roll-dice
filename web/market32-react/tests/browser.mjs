@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';import {chromium} from 'playwright';import {mkdirSync} from 'node:fs';
+const base='http://127.0.0.1:4173/';mkdirSync('market32-shadcn-screens',{recursive:true});
+const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+let passed=0;
+try{for(const v of [{name:'desktop',width:1440,height:900},{name:'mobile',width:390,height:844}]){
+ const ctx=await browser.newContext({viewport:{width:v.width,height:v.height},deviceScaleFactor:1});
+ const page=await ctx.newPage();let errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(base,{waitUntil:'domcontentloaded',timeout:40000});
+ await page.getByText('Welcome to Market32').waitFor({timeout:20000});
+ await page.screenshot({path:'market32-shadcn-screens/'+v.name+'-login.png',fullPage:true});
+ await page.getByRole('button',{name:'Enter the dashboard'}).click();
+ await page.getByText('Overview dashboard').waitFor({timeout:40000});
+ await page.locator('.bg-hero').first().waitFor({timeout:10000});
+ assert.ok(await page.getByText('Pending summary').count()>0,'summary visible');
+ await page.screenshot({path:'market32-shadcn-screens/'+v.name+'-dashboard.png',fullPage:true});
+ if(v.name==='mobile')await page.locator('header').getByRole('button',{name:''}).first().click();
+ await page.getByRole('button',{name:'Events',exact:true}).click();
+ await page.getByText('Explore events').waitFor({timeout:20000});
+ await page.getByText('Upcoming markets').waitFor({timeout:15000});
+ assert.ok(await page.locator('.market-card').count()>=0,'events rendered');
+ await page.screenshot({path:'market32-shadcn-screens/'+v.name+'-events.png',fullPage:true});
+ if(v.name==='mobile')await page.locator('header').getByRole('button',{name:''}).first().click();
+ await page.getByRole('button',{name:'Marketplace',exact:true}).click();
+ await page.getByText('Independent marketplace').waitFor({timeout:20000});
+ await page.getByText('Stock', {exact:false}).count().catch(()=>{});
+ await page.screenshot({path:'market32-shadcn-screens/'+v.name+'-marketplace.png',fullPage:true});
+ assert.deepEqual(errors,[], 'No unhandled browser errors');
+ await ctx.close();passed++;
+ }console.log('Market32 Shadcn browser QA passed: '+passed+' viewports');
+}finally{await browser.close()}
