@@ -1,7 +1,7 @@
 name: Market32 React Browser QA
 on:
   push:
-    branches: [main, feat/market32-shadcn-react-20261112, fix/market32-shadcn-mobile-overflow-20261112]
+    branches: [main, feat/market32-shadcn-react-20261112, fix/market32-shadcn-mobile-overflow-20261112, fix/market32-full-bleed-visual-refresh-20261112]
     paths:
       - web/market32-react/**
       - .github/workflows/market32-react-browser.yml
