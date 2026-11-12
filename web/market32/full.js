@@ -63,8 +63,28 @@ async function dashboardPage(){const d=await api("dashboard");S.dashboard=d;cons
 async function eventsPage(){const markets=await api("markets");S.markets=markets.markets;const q=S.search.toLowerCase();const filtered=S.markets.filter(m=>(!S.county||m.county===S.county)&&(!q||(m.title+" "+m.county+" "+m.city).toLowerCase().includes(q)));
  const filters='<div class="filters"><input id="event-search" placeholder="Search Irish markets…" value="'+E(S.search)+'"><select id="county-filter"><option value="">All 32 counties</option>'+countyOptions()+'</select>'+button("filter-events","Apply filters","primary")+'</div>';
  const tiles=filtered.map((m,i)=>'<section class="panel market-card"><div class="market-image" style="background-image:linear-gradient(0deg,#182c26cc,transparent),url(\''+E(marketPhoto(m,i))+'\')"><div class="photo-overlay"><span class="sample-label">DEMO EVENT</span><h3>'+E(m.title)+'</h3></div></div><div class="body"><div class="info"><span>'+glyph("map-pin")+' '+E(m.city)+", "+E(m.county)+'</span><span>'+glyph("calendar")+' '+E(date(m.event_date))+'</span></div><p class="desc">'+E(m.description||"An independent Irish community market with vintage stalls and handmade finds.")+'</p><div class="foot"><strong>€10 / stall</strong>'+button("open-stalls","View stalls","primary",'data-id="'+E(m.id)+'"')+'</div></div></section>').join("");
- actions(heading("Events","Discover and manage markets across Ireland.",(S.role==="organiser"||S.role==="admin"?button("new-market",glyph("plus")+" New event","primary"):'<div class="sample-label">32 Irish counties</div>'))+filters+'<div class="three-col">'+(tiles||'<div class="empty panel">No matching markets</div>')+'</div>');
+ actions(heading("Events","Discover and manage markets across Ireland.",(S.role==="organiser"||S.role==="admin"?button("new-market",glyph("plus")+" New event","primary"):'<div class="sample-label">32 Irish counties</div>'))+filters+'<div class="panel content-padding" style="margin-bottom:18px"><div class="panel-head" style="padding:0 0 11px"><h2>Explore all 32 counties</h2><small>Illustrative market locations · OpenStreetMap</small></div><div id="ireland-map" style="height:325px;border-radius:9px;background:#deebe2"></div></div><div class="three-col">'+(tiles||'<div class="empty panel">No matching markets</div>')+'</div>');setTimeout(()=>initIrelandMap(filtered),100);
 }
+
+let lastIrelandMap=null;
+function initIrelandMap(rows){
+ const node=document.getElementById("ireland-map");
+ if(!node)return;
+ if(!window.L){node.innerHTML='<div class="empty">Map temporarily unavailable. All 32 counties remain searchable above.</div>';return}
+ try{if(lastIrelandMap){lastIrelandMap.remove();lastIrelandMap=null}
+ lastIrelandMap=L.map(node,{scrollWheelZoom:false}).setView([53.62,-7.8],7);
+ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap contributors",maxZoom:18}).addTo(lastIrelandMap);
+ const bounds=[];
+ for(const m of rows){if(!Number.isFinite(Number(m.lat))||!Number.isFinite(Number(m.lng)))continue;
+  const loc=[Number(m.lat),Number(m.lng)];bounds.push(loc);
+  const mk=L.marker(loc).addTo(lastIrelandMap).bindPopup('<strong>'+E(m.title)+'</strong><br>'+E(m.county)+'<br><small>Fictional sample event</small>');
+  mk.on("click",()=>{S.marketId=m.id;S.stall=null;navigate("stalls")});
+ }
+ if(bounds.length>1)lastIrelandMap.fitBounds(bounds,{padding:[20,20],maxZoom:8});else if(bounds.length===1)lastIrelandMap.setView(bounds[0],10);
+ setTimeout(()=>lastIrelandMap&&lastIrelandMap.invalidateSize(),150);
+ }catch(e){node.textContent="Map could not be loaded. County search remains available.";console.warn(e)}
+}
+
 async function stallsPage(){if(!S.markets.length)S.markets=(await api("markets")).markets;const market=S.markets.find(m=>m.id===S.marketId)||S.markets[0];if(!market){actions(heading("Stall Planner","No market exists"));return}S.marketId=market.id;
  const a=await api("stalls?market="+encodeURIComponent(market.id));S.stalls=a.stalls;const chosen=S.stalls.find(s=>s.id===S.stall);
  const controls=(S.role==="organiser"||S.role==="admin")?button("toggle-layout",S.editLayout?"Finish editing layout":"Edit floorplan","primary")+button("new-stall",glyph("plus")+" Add a stall","secondary"):button(S.role==="seller"?"apply-stall":"hold-stall",S.role==="seller"?"Apply for stall":"Hold selected stall","primary");
