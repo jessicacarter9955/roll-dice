@@ -1,0 +1,37 @@
+name: Market32 Browser Screenshots
+on:
+  push:
+    branches: [feat/market32-full-platform-20261112]
+    paths:
+      - 'web/market32/**'
+      - '.github/workflows/market32-browser.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  market32-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --no-package-lock --prefix /tmp/market32-qa playwright@1.58.2
+          cd /tmp/market32-qa && npx playwright install --with-deps chromium
+          ln -s /tmp/market32-qa/node_modules/playwright node_modules/playwright
+      - name: Start Web server
+        run: |
+          python3 -m http.server 8090 --bind 127.0.0.1 -d web/market32 >/tmp/market32-http.log 2>&1 &
+          for i in 1 2 3 4 5; do curl -f http://127.0.0.1:8090/ && break || sleep 1; done
+      - name: Test buyer seller organiser admin and mobile UI
+        run: node web/market32/tests/browser.mjs
+      - name: Publish screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: market32-role-screenshots
+          path: artifacts/market32/
+          if-no-files-found: warn
