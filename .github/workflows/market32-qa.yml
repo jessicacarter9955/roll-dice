@@ -25,3 +25,6 @@ jobs:
           test -s web/market32/app.css
       - name: Verify Supabase API and four roles
         run: node web/market32/tests/smoke.mjs
+      - name: Verify cross-role writes, bookings, demo settlements, QR and refund
+        if: github.ref == 'refs/heads/feat/market32-full-platform-20261112'
+        run: node web/market32/tests/cross-role.mjs
