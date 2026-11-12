@@ -1,7 +1,7 @@
 @tailwind base;@tailwind components;@tailwind utilities;
-:root{font-family:'DM Sans',system-ui,sans-serif;color:#243347;background:#f6f8fb;font-synthesis:none;font-weight:400}
+:root{font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#243347;background:#f6f8fb;font-synthesis:none;font-weight:400}
 *{box-sizing:border-box}body{margin:0;min-width:320px}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.48}
-h1,h2,h3,.font-display{font-family:Manrope,'DM Sans',sans-serif;letter-spacing:-.035em}
+h1,h2,h3,.font-display{font-family:'Sora','Plus Jakarta Sans',sans-serif;letter-spacing:-.035em}
 .app-bg{background:radial-gradient(ellipse at 98% 0%,rgba(226,243,235,.48),transparent 48%),#f6f8fb}
 .sidebar-grad{background:linear-gradient(180deg,#15273b,#192d42 55%,#16283b)}
 .nav-scroll::-webkit-scrollbar{width:5px}.nav-scroll::-webkit-scrollbar-thumb{background:#516176;border-radius:8px}
@@ -45,3 +45,13 @@ input[type=number]{font-variant-numeric:tabular-nums}
 .dashboard-top>*{min-width:0}
 @media(max-width:960px){.dashboard-grid{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:640px){.dashboard-top{grid-template-columns:minmax(0,1fr)}.dashboard-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* Full-bleed layout: do not reserve white gutters outside the app. */
+html,body,#root{width:100%;min-width:320px;margin:0}
+#root>.app-bg{width:100%;max-width:none;margin-inline:0}
+#root>.app-bg>div{min-width:0}
+/* Editorial finish on top of accessible shadcn/ui components. */
+.font-display,h1,h2,h3{font-feature-settings:"ss01" on;letter-spacing:-.04em}
+.panel-hover:hover{transform:translateY(-4px);box-shadow:0 16px 42px rgba(18,55,51,.12)}
+.market-editorial{background-image:linear-gradient(96deg,rgba(9,28,39,.95) 0%,rgba(9,44,45,.83) 52%,rgba(6,52,42,.28) 100%),url('https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=1500&q=85');background-position:center;background-size:cover}
+.market-editorial:before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 58%,rgba(8,43,34,.2));pointer-events:none}
